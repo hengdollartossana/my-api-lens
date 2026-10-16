@@ -3,6 +3,16 @@
 export type RunStatus = "running" | "done" | "failed" | "cancelled";
 export type Severity = "ok" | "info" | "warn" | "error";
 
+/** Mirror of core/diff DiffItem as plain JSON. */
+export interface DiffItemJson {
+  kind: string;
+  severity: "error" | "warn" | "info";
+  path: string;
+  message: string;
+  expected?: unknown;
+  actual?: unknown;
+}
+
 export interface RunListItem {
   id: string;
   projectId: string;
@@ -36,6 +46,8 @@ export interface RunResultItem {
   request: unknown;
   responseHeaders: Record<string, string> | null;
   responseBody: string | null;
+  /** Differences from the spec (null when not compared: skipped, error or truncated body). */
+  diff: DiffItemJson[] | null;
 }
 
 export interface RunDetail {
@@ -50,6 +62,7 @@ export interface RunResultEvent {
   statusCode: number | null;
   durationMs: number | null;
   severity: Severity;
+  diffCount: number;
   skipped: boolean;
   skipReason: string | null;
   error: string | null;

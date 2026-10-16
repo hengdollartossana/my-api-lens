@@ -20,6 +20,13 @@ export function severityFor(res: Pick<ExecResult, "status" | "error">): Severity
   return "ok";
 }
 
+const SEVERITY_RANK: Record<Severity, number> = { ok: 0, info: 1, warn: 2, error: 3 };
+
+/** The most severe of the given severities ("ok" when none). */
+export function combineSeverity(...all: Severity[]): Severity {
+  return all.reduce<Severity>((a, b) => (SEVERITY_RANK[b] > SEVERITY_RANK[a] ? b : a), "ok");
+}
+
 export const MAX_CONCURRENCY = 4;
 
 export function clampConcurrency(n: number | undefined): number {

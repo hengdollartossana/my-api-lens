@@ -4,6 +4,7 @@ import { Ban, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import { EnvBadge, MethodBadge, StatusBadge } from "@/components/badges";
+import { DiffList } from "@/components/diff/diff-list";
 import { JsonViewer } from "@/components/json-viewer";
 import { Button } from "@/components/ui/button";
 import { type RunResultItem, SKIP_LABELS } from "@/lib/run-types";
@@ -50,6 +51,12 @@ function ResultDetails({ r, finished }: { r: RunResultItem; finished: boolean })
           {r.error}
         </p>
       ) : null}
+      {r.diff && r.diff.length > 0 ? (
+        <div className="lg:col-span-2">
+          <h4 className="mb-1 text-xs font-medium">Differences from the spec</h4>
+          <DiffList items={r.diff} />
+        </div>
+      ) : null}
       <div>
         <h4 className="mb-1 text-xs font-medium">Request (redacted)</h4>
         <JsonViewer value={r.request ?? {}} maxHeight="14rem" />
@@ -71,9 +78,9 @@ function ResultDetails({ r, finished }: { r: RunResultItem; finished: boolean })
 }
 
 /** Live view of one run: progress, cancel, and a row per endpoint with its status and severity. */
-export function RunView({ runId }: { runId: string }) {
+export function RunView({ runId, initialOpen }: { runId: string; initialOpen?: string }) {
   const { data, error, isLoading } = useRun(runId);
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState<Set<string>>(new Set(initialOpen ? [initialOpen] : []));
   const [cancelling, setCancelling] = useState(false);
 
   if (isLoading) return <p className="text-sm text-zinc-500">Loading run…</p>;
@@ -175,7 +182,14 @@ export function RunView({ runId }: { runId: string }) {
                     <td className="p-2">
                       <MethodBadge method={r.method} />
                     </td>
-                    <td className="p-2 font-mono text-xs">{r.path || r.stableKey}</td>
+                    <td className="p-2 font-mono text-xs">
+                      {r.path || r.stableKey}
+                      {r.diff && r.diff.length > 0 ? (
+                        <span className="ml-2 rounded bg-zinc-500/10 px-1.5 py-0.5 font-sans text-[11px] text-zinc-600 dark:text-zinc-300">
+                          {r.diff.length} diff{r.diff.length === 1 ? "" : "s"}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="p-2 text-right tabular-nums">{r.statusCode ?? "—"}</td>
                     <td className="p-2 text-right tabular-nums">
                       {r.durationMs !== null ? `${r.durationMs} ms` : "—"}
