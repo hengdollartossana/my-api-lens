@@ -1,0 +1,122 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`snapshots > messy-v3 with a login_flow auth summary, custom placeholder and diff notes 1`] = `
+"# Orders
+
+Base URL: \`<BASE_URL>\`
+
+Auth: Bearer token from \`POST /api/v1/auth/login\` (response \`token\`), sent in \`Authorization\` header
+
+## Types
+\`\`\`ts
+interface Order {
+  id: string;
+  total: Total;
+  shippingAddress: ShippingAddress;
+  lines: Line[];
+}
+
+interface Total {
+  amount: number;
+  currency: string;
+}
+
+interface ShippingAddress {
+  line1: string;
+  city: string;
+  zip?: string;
+}
+
+interface Line {
+  sku: string;
+  quantity: number;
+  price: Total;
+}
+\`\`\`
+
+## Order
+- \`GET /api/v1/{tenant}/orders\` (path: tenant: string; query: limit?: number) → 200 Order[]
+- \`GET /api/v1/{tenant}/orders/{orderId}\` (path: tenant: string, orderId: string) → 200 Order | 404
+- \`DELETE /api/v1/{tenant}/orders/{orderId}\` (path: tenant: string, orderId: string) → 204 | 404
+
+## Known diffs
+- \`GET /api/v1/{tenant}/orders\` $[0].total.amount: is a string, spec says number
+"
+`;
+
+exports[`snapshots > messy-v3, all modules 1`] = `
+"# API context
+
+Base URL: \`{{BASE_URL}}\`
+
+Auth: Bearer token in \`Authorization\` header
+
+## Types
+\`\`\`ts
+interface CreateLoginBody {
+  username: string;
+  password: string;
+}
+
+interface Login {
+  token: string;
+  refreshToken: string;
+}
+
+interface CreateRefreshBody {
+  refreshToken: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  address?: Address;
+}
+
+interface CreateUserBody {
+  email: string;
+  name: string;
+}
+
+interface Order {
+  id: string;
+  total: Total;
+  shippingAddress: Address;
+  lines: Line[];
+}
+
+interface Address {
+  line1: string;
+  city: string;
+  zip?: string;
+}
+
+interface Total {
+  amount: number;
+  currency: string;
+}
+
+interface Line {
+  sku: string;
+  quantity: number;
+  price: Total;
+}
+\`\`\`
+
+## Auth
+- \`POST /api/v1/auth/login\` (body: CreateLoginBody) → 200 Login | 401
+- \`POST /api/v1/auth/refresh\` (body: CreateRefreshBody) → 200 Login | 401
+- \`GET /api/v1/auth/me\` → 200 User | 401
+
+## User
+- \`GET /api/v1/{tenant}/users\` (path: tenant: string) → 200 User[] | 401
+- \`POST /api/v1/{tenant}/users\` (path: tenant: string; body: CreateUserBody) → 201 User | 401
+- \`GET /api/v1/{tenant}/users/{userId}\` (path: tenant: string, userId: string) → 200 User | 404
+
+## Order
+- \`GET /api/v1/{tenant}/orders\` (path: tenant: string; query: limit?: number) → 200 Order[]
+- \`GET /api/v1/{tenant}/orders/{orderId}\` (path: tenant: string, orderId: string) → 200 Order | 404
+- \`DELETE /api/v1/{tenant}/orders/{orderId}\` (path: tenant: string, orderId: string) → 204 | 404
+"
+`;
