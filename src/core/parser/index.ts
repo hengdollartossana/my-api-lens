@@ -71,5 +71,6 @@ export async function parseSpec(input: ParseInput): Promise<ParsedSpec> {
     securitySchemes: normalizeSecuritySchemes(api, v2),
     endpoints: normalizeEndpoints(api, v2),
     specHash: createHash("sha256").update(canonical(raw)).digest("hex"),
+    raw,
   };
 }
