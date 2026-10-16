@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "pnpm@12.10.1",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
     "@apidevtools/swagger-parser": "^13.1.0",
     "@codemirror/lang-json": "^6.0.2",
     "@tailwindcss/postcss": "^4.3.3",

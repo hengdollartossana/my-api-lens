@@ -15,6 +15,13 @@
       "when": 1792144135493,
       "tag": "0001_burly_sasquatch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792166436902,
+      "tag": "0002_black_hellcat",
+      "breakpoints": true
     }
   ]
 }

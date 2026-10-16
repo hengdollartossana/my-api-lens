@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -197,6 +198,21 @@ export const runResults = pgTable(
     ...timestamps,
   },
   (t) => [index("run_results_run_idx").on(t.runId)],
+);
+
+// One row per AI call: tokens and estimated cost, summed for the soft monthly budget.
+export const aiCalls = pgTable(
+  "ai_calls",
+  {
+    id: id(),
+    purpose: text("purpose").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    costUsd: doublePrecision("cost_usd").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_calls_created_idx").on(t.createdAt)],
 );
 
 export const settings = pgTable("settings", {
