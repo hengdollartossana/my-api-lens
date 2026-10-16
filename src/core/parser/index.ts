@@ -3,6 +3,7 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import { canonicalJson } from "./canonical";
 import { ParseSpecError } from "./errors";
 import { fetchSpecText } from "./fetch";
+import { discoverSpecUrl, looksLikeHtml, NOT_A_SPEC_MESSAGE } from "./html";
 import { normalizeEndpoints, normalizeSecuritySchemes, normalizeServers } from "./normalize";
 import type { JsonObject, ParsedSpec, ParseInput } from "./types";
 
@@ -31,7 +32,13 @@ function extensionFor(text: string, filename?: string): string {
 }
 
 export async function parseSpec(input: ParseInput): Promise<ParsedSpec> {
-  const text = "url" in input ? await fetchSpecText(input.url) : input.text;
+  let text = "url" in input ? await fetchSpecText(input.url) : input.text;
+  if (looksLikeHtml(text)) {
+    // A docs page (Swagger UI, Redoc): follow the spec URL it points to, once.
+    const next = "url" in input ? discoverSpecUrl(text, input.url) : null;
+    if (next) text = await fetchSpecText(next);
+    if (!next || looksLikeHtml(text)) throw new ParseSpecError("INVALID_SPEC", NOT_A_SPEC_MESSAGE);
+  }
   const filename = "url" in input ? undefined : input.filename;
   const virtual = `spec:///spec.${extensionFor(text, filename)}`;
 
