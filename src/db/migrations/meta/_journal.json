@@ -8,6 +8,13 @@
       "when": 1792142421757,
       "tag": "0000_high_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792144135493,
+      "tag": "0001_burly_sasquatch",
+      "breakpoints": true
     }
   ]
 }
