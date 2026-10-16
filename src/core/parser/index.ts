@@ -1,1 +1,75 @@
-export {};
+import { createHash } from "node:crypto";
+import SwaggerParser from "@apidevtools/swagger-parser";
+import { ParseSpecError } from "./errors";
+import { fetchSpecText } from "./fetch";
+import { normalizeEndpoints, normalizeSecuritySchemes, normalizeServers } from "./normalize";
+import type { JsonObject, ParsedSpec, ParseInput } from "./types";
+
+export { type ParseErrorCode, ParseSpecError } from "./errors";
+export { FETCH_TIMEOUT_MS, fetchSpecText, MAX_SPEC_BYTES } from "./fetch";
+export { isDestructive, stableKey } from "./normalize";
+export type { NormalizedEndpoint, NormalizedParameter, ParsedSpec, ParseInput } from "./types";
+
+/** Stable JSON: object keys sorted so formatting/key order never changes the hash. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as JsonObject;
+    return `{${Object.keys(o)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
+function extensionFor(text: string, filename?: string): string {
+  const ext = filename?.match(/\.(json|ya?ml)$/i)?.[1]?.toLowerCase();
+  if (ext) return ext === "json" ? "json" : "yaml";
+  return text.trimStart().startsWith("{") ? "json" : "yaml";
+}
+
+export async function parseSpec(input: ParseInput): Promise<ParsedSpec> {
+  const text = "url" in input ? await fetchSpecText(input.url) : input.text;
+  const filename = "url" in input ? undefined : input.filename;
+  const virtual = `spec:///spec.${extensionFor(text, filename)}`;
+
+  let raw: JsonObject;
+  let api: JsonObject;
+  try {
+    // Parse from memory (YAML or JSON); no filesystem or network access for the spec itself.
+    const resolve = {
+      external: false,
+      spec: { order: 1, canRead: /^spec:/, read: () => text },
+    };
+    raw = (await SwaggerParser.parse(virtual, { resolve } as never)) as unknown as JsonObject;
+    api = (await SwaggerParser.validate(
+      structuredClone(raw) as never,
+      {
+        dereference: { circular: "ignore" },
+      } as never,
+    )) as unknown as JsonObject;
+  } catch (err) {
+    throw new ParseSpecError("INVALID_SPEC", (err as Error).message);
+  }
+
+  const v2 = api.swagger === "2.0";
+  const openapi = v2 ? "2.0" : String(api.openapi ?? "");
+  if (!v2 && !openapi.startsWith("3.")) {
+    throw new ParseSpecError(
+      "UNSUPPORTED_VERSION",
+      `Unsupported spec version: ${openapi || "unknown"}`,
+    );
+  }
+
+  const info = (api.info ?? {}) as JsonObject;
+  return {
+    title: String(info.title ?? ""),
+    version: String(info.version ?? ""),
+    openapi,
+    servers: normalizeServers(api, v2),
+    securitySchemes: normalizeSecuritySchemes(api, v2),
+    endpoints: normalizeEndpoints(api, v2),
+    specHash: createHash("sha256").update(canonical(raw)).digest("hex"),
+  };
+}
