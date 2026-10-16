@@ -1,27 +1,23 @@
 import { createHash } from "node:crypto";
 import SwaggerParser from "@apidevtools/swagger-parser";
+import { canonicalJson } from "./canonical";
 import { ParseSpecError } from "./errors";
 import { fetchSpecText } from "./fetch";
 import { normalizeEndpoints, normalizeSecuritySchemes, normalizeServers } from "./normalize";
 import type { JsonObject, ParsedSpec, ParseInput } from "./types";
 
+export { canonicalJson } from "./canonical";
+export {
+  type ChangedEndpoint,
+  type ComparableEndpoint,
+  type ContractPart,
+  changedParts,
+  compareEndpoints,
+} from "./compare";
 export { type ParseErrorCode, ParseSpecError } from "./errors";
 export { FETCH_TIMEOUT_MS, fetchSpecText, MAX_SPEC_BYTES } from "./fetch";
 export { isDestructive, stableKey } from "./normalize";
 export type { NormalizedEndpoint, NormalizedParameter, ParsedSpec, ParseInput } from "./types";
-
-/** Stable JSON: object keys sorted so formatting/key order never changes the hash. */
-function canonical(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
-  if (v && typeof v === "object") {
-    const o = v as JsonObject;
-    return `{${Object.keys(o)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(v) ?? "null";
-}
 
 function extensionFor(text: string, filename?: string): string {
   const ext = filename?.match(/\.(json|ya?ml)$/i)?.[1]?.toLowerCase();
@@ -70,7 +66,7 @@ export async function parseSpec(input: ParseInput): Promise<ParsedSpec> {
     servers: normalizeServers(api, v2),
     securitySchemes: normalizeSecuritySchemes(api, v2),
     endpoints: normalizeEndpoints(api, v2),
-    specHash: createHash("sha256").update(canonical(raw)).digest("hex"),
+    specHash: createHash("sha256").update(canonicalJson(raw)).digest("hex"),
     raw,
   };
 }
