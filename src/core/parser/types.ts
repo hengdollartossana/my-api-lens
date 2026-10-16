@@ -32,6 +32,8 @@ export interface ParsedSpec {
   securitySchemes: Record<string, JsonObject>;
   endpoints: NormalizedEndpoint[];
   specHash: string;
+  /** The spec as written (JSON-compatible, $refs intact); stored so re-imports can be compared. */
+  raw: JsonObject;
 }
 
 export type ParseInput = { url: string } | { text: string; filename?: string };
