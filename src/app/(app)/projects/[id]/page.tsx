@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { StatusBadge, ViaBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
+import { ReimportDialog } from "@/components/projects/reimport-dialog";
 import { PageHeader } from "@/components/shell/page-header";
 import { listModules } from "@/db/modules";
 import { getProject } from "@/db/projects";
@@ -22,6 +23,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <PageHeader
         title={project.name}
         description={`${project.endpointCount} endpoints in ${project.moduleCount} modules`}
+        actions={
+          <ReimportDialog
+            projectId={id}
+            specSource={project.specSource}
+            specUrl={project.specUrl}
+          />
+        }
       />
       {modules.length === 0 ? (
         <EmptyState
