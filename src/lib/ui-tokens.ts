@@ -70,14 +70,6 @@ export function viaLabel(via: string): string {
   return VIA_LABELS[via as ViaKey] ?? via;
 }
 
-/** Placeholder switcher data until real projects/environments exist (T-10, T-13). */
-export const PLACEHOLDER_PROJECTS = [{ id: "demo", name: "Demo project" }];
-export const PLACEHOLDER_ENVIRONMENTS = [
-  { name: "local", isProd: false },
-  { name: "staging", isProd: false },
-  { name: "prod", isProd: true },
-];
-
 export const NAV_ITEMS = [
   { href: "/projects", label: "Projects", icon: "folder" },
   { href: "/runs", label: "Runs", icon: "play" },
@@ -89,6 +81,7 @@ export const PROJECT_TABS = [
   { suffix: "/diff", label: "Diff" },
   { suffix: "/pack", label: "Context pack" },
   { suffix: "/codegen", label: "Codegen" },
+  { suffix: "/settings", label: "Settings" },
 ] as const;
 
 /** Is `href` the current section of `pathname`? "/projects" matches "/projects/demo/diff". */

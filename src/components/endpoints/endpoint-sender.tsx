@@ -2,7 +2,8 @@
 
 import { Loader2, Plus, Send, X } from "lucide-react";
 import { useState } from "react";
-import { StatusBadge } from "@/components/badges";
+import { EnvBadge, StatusBadge } from "@/components/badges";
+import { useEnvironmentSelection } from "@/components/environments/use-environment-selection";
 import { JsonEditor } from "@/components/json-editor";
 import { JsonViewer } from "@/components/json-viewer";
 import { ConfirmDestructiveDialog } from "@/components/runs/confirm-destructive-dialog";
@@ -137,9 +138,7 @@ export function EndpointSender({
   initial: InitialInput;
 }) {
   const [tab, setTab] = useState<Tab>("request");
-  const [envId, setEnvId] = useState(
-    environments.find((e) => !e.isProd)?.id ?? environments[0]?.id ?? "",
-  );
+  const [env, selectEnv] = useEnvironmentSelection(projectId, environments);
   const [pathParams, setPathParams] = useState(initial.pathParams);
   const [query, setQuery] = useState(initial.query);
   const [headers, setHeaders] = useState<{ key: string; value: string }[]>([]);
@@ -148,8 +147,6 @@ export function EndpointSender({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const env = environments.find((e) => e.id === envId);
 
   async function post(confirmed: boolean, typedName = "") {
     if (!env) return;
@@ -220,8 +217,8 @@ export function EndpointSender({
           <Label htmlFor="send-env">Environment</Label>
           <select
             id="send-env"
-            value={envId}
-            onChange={(e) => setEnvId(e.target.value)}
+            value={env?.id ?? ""}
+            onChange={(e) => selectEnv(e.target.value)}
             className="h-9 rounded-md border border-zinc-300 bg-background px-2 text-sm dark:border-zinc-800"
           >
             {environments.map((e) => (

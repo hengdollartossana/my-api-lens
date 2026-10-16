@@ -56,6 +56,12 @@ describe("navigation helpers", () => {
   });
 
   it("lists the project tabs", () => {
-    expect(PROJECT_TABS.map((t) => t.suffix)).toEqual(["", "/diff", "/pack", "/codegen"]);
+    expect(PROJECT_TABS.map((t) => t.suffix)).toEqual([
+      "",
+      "/diff",
+      "/pack",
+      "/codegen",
+      "/settings",
+    ]);
   });
 });

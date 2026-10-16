@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { StatusBadge } from "@/components/badges";
+import { EnvBadge, StatusBadge } from "@/components/badges";
 import type { RunListItem } from "@/lib/run-types";
 
 const fmt = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" });
