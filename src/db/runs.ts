@@ -75,6 +75,7 @@ export async function getRunDetail(id: string): Promise<RunDetail | null> {
       request: runResults.request,
       responseHeaders: runResults.responseHeaders,
       responseBody: runResults.responseBody,
+      diff: runResults.diff,
     })
     .from(runResults)
     .innerJoin(endpoints, eq(endpoints.id, runResults.endpointId))

@@ -34,6 +34,7 @@ function fromEvent(e: RunResultEvent, previous?: RunResultItem): RunResultItem {
     request: previous?.request ?? null,
     responseHeaders: previous?.responseHeaders ?? null,
     responseBody: previous?.responseBody ?? null,
+    diff: previous?.diff ?? null,
   };
 }
 

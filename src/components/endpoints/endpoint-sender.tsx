@@ -3,6 +3,7 @@
 import { Loader2, Plus, Send, X } from "lucide-react";
 import { useState } from "react";
 import { EnvBadge, StatusBadge } from "@/components/badges";
+import { DiffList } from "@/components/diff/diff-list";
 import { useEnvironmentSelection } from "@/components/environments/use-environment-selection";
 import { JsonEditor } from "@/components/json-editor";
 import { JsonViewer } from "@/components/json-viewer";
@@ -90,6 +91,12 @@ function ResponsePane({ runId, endpoint }: { runId: string; endpoint: SenderEndp
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {result.error}
         </p>
+      ) : null}
+      {result.diff ? (
+        <div>
+          <h3 className="mb-1 text-xs font-medium">Differences from the spec</h3>
+          <DiffList items={result.diff} />
+        </div>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-3">

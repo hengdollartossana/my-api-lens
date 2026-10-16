@@ -1,7 +1,9 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { type DiffItem, diffResponse, type ResponseSchemas, worstSeverity } from "@/core/diff";
 import {
   buildRequest,
   clampConcurrency,
+  combineSeverity,
   type ExecEndpoint,
   type ExecInput,
   type ExecResult,
@@ -38,6 +40,7 @@ export interface ResultEventData {
   statusCode: number | null;
   durationMs: number | null;
   severity: Severity;
+  diffCount: number;
   skipped: boolean;
   skipReason: string | null;
   error: string | null;
@@ -221,7 +224,19 @@ async function execute(
         }
       }
 
-      const severity: Severity = reason ? "info" : result ? severityFor(result) : "error";
+      // Compare the response with the spec. A cut-off (truncated) body cannot be judged.
+      let diff: DiffItem[] | null = null;
+      if (result && result.status !== null && !result.truncated) {
+        diff = diffResponse((row.responseSchemas ?? {}) as ResponseSchemas, {
+          status: result.status,
+          body: result.body,
+        });
+      }
+      const severity: Severity = reason
+        ? "info"
+        : result
+          ? combineSeverity(severityFor(result), worstSeverity(diff ?? []))
+          : "error";
       await db.insert(runResults).values({
         runId: run.id,
         endpointId: row.id,
@@ -230,6 +245,7 @@ async function execute(
         durationMs: result?.durationMs ?? null,
         responseHeaders: result ? redactHeaders(result.headers) : null,
         responseBody: result ? truncate(result.bodyText) : null,
+        diff,
         severity,
         skipReason: reason,
         error: errorText,
@@ -243,6 +259,7 @@ async function execute(
           statusCode: result?.status ?? null,
           durationMs: result?.durationMs ?? null,
           severity,
+          diffCount: diff?.length ?? 0,
           skipped: reason !== null,
           skipReason: reason,
           error: errorText,
@@ -293,6 +310,7 @@ export async function replayFromDb(runId: string): Promise<RunEvent[] | null> {
         statusCode: r.statusCode,
         durationMs: r.durationMs,
         severity: r.severity,
+        diffCount: Array.isArray(r.diff) ? r.diff.length : 0,
         skipped: r.skipReason !== null,
         skipReason: r.skipReason,
         error: r.error,
