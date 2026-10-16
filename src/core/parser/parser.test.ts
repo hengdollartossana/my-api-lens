@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { discoverSpecUrl, looksLikeHtml } from "./html";
 import { isDestructive, ParseSpecError, parseSpec, stableKey } from "./index";
 
 const spec = (name: string) => readFileSync(`fixtures/specs/${name}`, "utf8");
@@ -87,6 +88,16 @@ describe("parseSpec url", () => {
   beforeAll(async () => {
     server = createServer((req, res) => {
       if (req.url === "/ok.yaml") return void res.end(spec("petstore-v3.yaml"));
+      if (req.url === "/docs")
+        return void res.end(
+          "<!doctype html><html><body><div id=ui></div><script>SwaggerUIBundle({ url: '/ok.yaml', dom_id: '#ui' })</script></body></html>",
+        );
+      if (req.url === "/redoc")
+        return void res.end(
+          '<!doctype html><html><body><redoc spec-url="/ok.yaml"></redoc></body></html>',
+        );
+      if (req.url === "/page")
+        return void res.end("<!doctype html><html><body>hello</body></html>");
       if (req.url === "/big") return void res.end("x".repeat(2048));
       if (req.url === "/slow") return; // never responds
       res.writeHead(404).end();
@@ -104,6 +115,21 @@ describe("parseSpec url", () => {
     expect(p.endpoints).toHaveLength(4);
   });
 
+  it("follows the spec URL of a Swagger UI or Redoc docs page", async () => {
+    expect((await parseSpec({ url: `${base}/docs` })).endpoints).toHaveLength(4);
+    expect((await parseSpec({ url: `${base}/redoc` })).endpoints).toHaveLength(4);
+  });
+
+  it("explains when a web page has no spec in it", async () => {
+    await expect(parseSpec({ url: `${base}/page` })).rejects.toMatchObject({
+      code: "INVALID_SPEC",
+      message: expect.stringContaining("web page, not an OpenAPI spec"),
+    });
+    await expect(
+      parseSpec({ text: "<!DOCTYPE html><html></html>", filename: "x.html" }),
+    ).rejects.toMatchObject({ code: "INVALID_SPEC" });
+  });
+
   it("maps HTTP errors, size limit and timeout to typed errors", async () => {
     await expect(parseSpec({ url: `${base}/nope` })).rejects.toMatchObject({
       code: "FETCH_FAILED",
@@ -115,5 +141,28 @@ describe("parseSpec url", () => {
     await expect(fetchSpecText(`${base}/slow`, { timeoutMs: 200 })).rejects.toMatchObject({
       code: "FETCH_TIMEOUT",
     });
+  });
+});
+
+describe("docs page detection", () => {
+  it("recognises HTML but not JSON or YAML", () => {
+    expect(looksLikeHtml("  <!DOCTYPE html><html>")).toBe(true);
+    expect(looksLikeHtml('{"openapi":"3.0.0"}')).toBe(false);
+    expect(looksLikeHtml("openapi: 3.0.0")).toBe(false);
+  });
+
+  it("finds the spec URL and only follows the same origin", () => {
+    const page = "http://localhost:3100/docs";
+    expect(
+      discoverSpecUrl(
+        "SwaggerUIBundle({ url: '/openapi.json', persistAuthorization: true })",
+        page,
+      ),
+    ).toBe("http://localhost:3100/openapi.json");
+    expect(discoverSpecUrl('<redoc spec-url="v3/api-docs"></redoc>', page)).toBe(
+      "http://localhost:3100/v3/api-docs",
+    );
+    expect(discoverSpecUrl("SwaggerUIBundle({ url: 'http://evil.test/x.json' })", page)).toBeNull();
+    expect(discoverSpecUrl("<p>nothing</p>", page)).toBeNull();
   });
 });
