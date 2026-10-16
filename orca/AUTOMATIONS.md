@@ -5,7 +5,7 @@
 2. `node scripts/github/bootstrap.mjs --dry-run` → check the list, then `node scripts/github/bootstrap.mjs` (creates labels + 34 issues).
 3. `node scripts/github/sync-ready.mjs` → marks the first issues `ready`. After that the GitHub Action keeps it updated on every merge.
 4. Orca → Worktree Hooks: paste `orca/setup.sh` and `orca/archive.sh`. **When to run: Run by default. Wait for setup to complete before starting agent: ON.**
-5. Wave 0 (all `mode:manual`): start each task by hand (section 3). Turn on a lane's automation only after its manual tasks merged cleanly.
+5. Full automation: run `node scripts/github/set-mode.mjs sync` once (flips every task to match TASKS.md: all auto except T-29–T-32), then turn on all six automations.
 
 ## 2. Automations
 All: Host = Local Mac · Project = my-api-lens · Workspace = **New run** from `main` · Session = **Fresh** · Grace = **1 hour**.
@@ -47,6 +47,6 @@ Test each precheck once in a terminal with no matching work: it must print nothi
 Don't start a lane by hand at the same minute its automation fires.
 
 ## 4. Manual vs automation
-Manual (14): T-01, T-02, T-03, T-04, T-05, T-06, T-07, T-14, T-16, T-17, T-29, T-30, T-31, T-32.
-When a manual task comes up mid-project (T-16, T-17), pause that lane's automation, do it supervised, resume.
-M6 (T-29–31) needs owner sign-off on `@anthropic-ai/sdk`; T-32 on `@playwright/test`.
+Everything is `mode:auto` except T-01 (done) and the sign-off tasks: T-29–T-31 need owner sign-off on `@anthropic-ai/sdk`, T-32 on `@playwright/test`.
+After signing off: `node scripts/github/set-mode.mjs auto T-29 T-30 T-31` (or `T-32`).
+Read foundation/security PRs yourself before merging: T-02, T-03, T-04, T-05, T-14, T-16, T-17.

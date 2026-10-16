@@ -15,7 +15,7 @@ Read AGENTS.md and TASKS.md first and follow them strictly. Do ONE issue, then s
 3. The issue title starts with the task ID (T-XX). Read that task in TASKS.md and every task it depends on.
 4. If branch task/T-XX-* exists (an earlier run stopped on a quota limit), check it out and continue. Otherwise create it from the latest main.
 5. Implement exactly the task scope, with the tests from its acceptance criteria. You own src/components/; reuse the existing shadcn components and badges (StatusBadge, MethodBadge, ViaBadge). Use the existing API routes and core modules; never re-implement backend logic in the UI. Do not edit package.json, src/db/, src/core/, fixtures/ or templates/; if a backend change is needed, comment on the issue and stop.
-6. Before starting any server: set -a; . ./.env; set +a — then use $APP_PORT and $MOCK_API_PORT, never fixed ports.
+6. Before starting any server: set -a; . ./.env; set +a — then use $APP_PORT and $MOCK_API_PORT, never fixed ports. If the task needs the database and `docker compose ps` shows postgres is not running, run pnpm db:up first.
 6b. Verify in the browser: load env (set -a; . ./.env; set +a), start pnpm mock:api and pnpm dev -p $APP_PORT, log in, and walk through every acceptance criterion at 1280px and 768px in dark and light mode. Check the console for errors. Fix what you find, then stop both servers. List what you verified in the PR body.
 7. Run pnpm check until it passes. If you cannot make it pass, push the branch, comment on the issue with the exact blocker, and stop.
 

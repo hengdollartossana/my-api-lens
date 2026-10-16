@@ -15,7 +15,7 @@ Milestones
 - M7 Hardening (T-32 → T-34)
 - Later: SwiftUI codegen, drift monitoring, CLI
 
-Mode: `manual` = owner opens the worktree and supervises the agent. `auto` = picked up by the lane's scheduled Orca automation.
+Mode: `auto` = picked up by the lane's scheduled Orca automation (everything except dependency sign-offs). `manual` = waits for the owner: T-01 (done) and T-29–T-32, which need a dependency sign-off first. After signing off, flip the issue to `mode:auto`.
 
 ---
 
@@ -36,7 +36,7 @@ Acceptance
 - No ESLint/Prettier present; all allowlisted deps installed.
 
 ### T-02 Postgres + Drizzle setup
-Agent: claude · Mode: manual · Milestone: M0
+Agent: claude · Mode: auto · Milestone: M0
 Depends on: T-01
 - `docker-compose.yml` with top-level `name: apilens`, service named `postgres` (Postgres 16, user/password `postgres`, named volume, port 5432). Scripts `db:up`, `db:down`.
 - `drizzle.config.ts` loads `.env` via dotenv; `src/db/client.ts` singleton pg Pool, safe for Next dev hot reload.
@@ -48,7 +48,7 @@ Acceptance
 - `src/db/client.ts` exports a typed `db`.
 
 ### T-03 Database schema
-Agent: claude · Mode: manual · Milestone: M0
+Agent: claude · Mode: auto · Milestone: M0
 Depends on: T-02
 Tables (uuid PKs, `created_at`/`updated_at`):
 - `projects`: name, spec_source (`url`|`file`), spec_url, spec_raw (jsonb), spec_hash, last_imported_at
@@ -67,7 +67,7 @@ Acceptance
 - Migration generated and applies cleanly; smoke test inserts and reads a project.
 
 ### T-04 Encryption helper
-Agent: opencode · Mode: manual · Milestone: M0
+Agent: opencode · Mode: auto · Milestone: M0
 Depends on: T-01
 - `src/lib/crypto.ts`: AES-256-GCM `encrypt`, `decrypt`, `mask` ("••••last4"). Key from `ENCRYPTION_KEY` (32 bytes base64); clear error if missing or wrong length.
 - `src/db/secrets.ts`: `saveSecret`, `readSecret` (server-only), `listSecretsMasked` (may land after T-03; stub types if T-03 is not merged yet and note it).
@@ -76,7 +76,7 @@ Acceptance
 - Unit tests: roundtrip, tampered ciphertext fails, wrong key fails, mask output.
 
 ### T-05 Single-user auth
-Agent: antigravity · Mode: manual · Milestone: M0
+Agent: antigravity · Mode: auto · Milestone: M0
 Depends on: T-01
 - Login page (password only). Compare with `APP_PASSWORD` using `crypto.timingSafeEqual` on SHA-256 digests.
 - Session: JWT (jose, HS256, `SESSION_SECRET`) in httpOnly, sameSite=lax cookie, 7-day expiry. Logout action.
@@ -89,7 +89,7 @@ Acceptance
 - Unit tests for token sign/verify and password compare.
 
 ### T-06 App shell UI
-Agent: antigravity · Mode: manual · Milestone: M0
+Agent: antigravity · Mode: auto · Milestone: M0
 Depends on: T-05
 - Layout: left sidebar (Projects, Runs, Settings), top bar with project + environment switchers (placeholder data), main content.
 - Placeholder routes: `/projects`, `/projects/[id]`, `/projects/[id]/modules/[moduleId]`, `/projects/[id]/endpoints/[endpointId]`, `/projects/[id]/diff`, `/projects/[id]/pack`, `/projects/[id]/codegen`, `/runs`, `/settings`.
@@ -99,7 +99,7 @@ Acceptance
 - All routes render in the shell; dark default with light toggle; works at 1280px and 768px.
 
 ### T-07 Test fixtures
-Agent: opencode · Mode: manual · Milestone: M0
+Agent: opencode · Mode: auto · Milestone: M0
 Depends on: T-01
 - `fixtures/specs/`: `petstore-v2.json`, `petstore-v3.yaml`, `messy-v3.json` (no tags, `/api/v1` prefix, `{tenant}` segment, controller-style operationIds, auth group with login/refresh/me, `$ref`-heavy schema, one endpoint returning an undocumented 409).
 - `fixtures/mock-api/server.ts` (node:http, run with tsx) listening on `MOCK_API_PORT` (default 4010), implementing `messy-v3.json` with deliberate mismatches: missing required field, extra field, wrong type, unexpected null, undocumented status. Login returns a token; protected routes require Bearer.
@@ -173,7 +173,7 @@ Acceptance
 - Invalid URL rejected; prod envs show a red badge everywhere.
 
 ### T-14 SSRF guard
-Agent: opencode · Mode: manual · Milestone: M2
+Agent: opencode · Mode: auto · Milestone: M2
 Depends on: T-01
 - `assertAllowedTarget(url, envBaseUrl)`: http/https only; same origin as env base URL; always block cloud metadata IPs (169.254.169.254, fd00:ec2::254); block the app's own host/port. Private/localhost allowed behind `allowPrivateTargets` (default true).
 
@@ -191,7 +191,7 @@ Acceptance
 - Tests against the mock API (port from env): path + query params, POST with generated body, timeout, truncation.
 
 ### T-16 Auth recipes
-Agent: claude · Mode: manual · Milestone: M2
+Agent: claude · Mode: auto · Milestone: M2
 Depends on: T-04, T-15
 - Types: `none`, `static_bearer`, `api_key`, `login_flow` (login endpoint, credentials as secret, JSON path to token, header template, optional refresh).
 - In-memory token cache per project+env; on 401 re-login once, retry once.
@@ -201,7 +201,7 @@ Acceptance
 - login_flow gets a token and protected GET succeeds; expired token triggers one re-login.
 
 ### T-17 Run API with streaming
-Agent: claude · Mode: manual · Milestone: M2
+Agent: claude · Mode: auto · Milestone: M2
 Depends on: T-15, T-16, T-03
 - `POST /api/runs` `{ projectId, environmentId, moduleId?, endpointIds?, confirmDestructive?, confirmEnvName? }`.
 - GET/HEAD by default; destructive only with confirmation; prod requires `confirmEnvName`.
