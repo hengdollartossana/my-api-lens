@@ -1,29 +1,60 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { z } from "zod";
 import { MethodBadge } from "@/components/badges";
-import { JsonViewer } from "@/components/json-viewer";
+import { EndpointSender } from "@/components/endpoints/endpoint-sender";
 import { PageHeader } from "@/components/shell/page-header";
+import { getEndpointDetail } from "@/db/endpoints";
+import { listEnvironments } from "@/db/environments";
+import { initialInput, type ParamDoc } from "@/lib/endpoint-input";
 
-const SAMPLE_RESPONSE = {
-  id: "u1",
-  email: "ann@example.test",
-  name: "Ann",
-  address: { city: "Springfield" },
-};
+export const dynamic = "force-dynamic";
 
 export default async function EndpointPage({
   params,
 }: {
   params: Promise<{ id: string; endpointId: string }>;
 }) {
-  const { endpointId } = await params;
+  const { id, endpointId } = await params;
+  if (!z.uuid().safeParse(id).success || !z.uuid().safeParse(endpointId).success) notFound();
+  const endpoint = await getEndpointDetail(id, endpointId);
+  if (!endpoint) notFound();
+  const environments = await listEnvironments(id);
+  const initial = initialInput(
+    endpoint.parameters as ParamDoc[] | null,
+    endpoint.requestBodySchema,
+  );
+
   return (
     <>
       <PageHeader
-        title={`Endpoint ${endpointId}`}
-        description="Request, response and diff for one endpoint (placeholder)."
-        actions={<MethodBadge method="GET" />}
+        title={endpoint.path}
+        description={endpoint.summary ?? endpoint.operationId ?? undefined}
+        actions={<MethodBadge method={endpoint.method} />}
       />
-      <h2 className="mb-2 text-sm font-medium">Sample response</h2>
-      <JsonViewer value={SAMPLE_RESPONSE} />
+      {endpoint.moduleId ? (
+        <p className="-mt-2 mb-4 text-xs text-zinc-500">
+          Module:{" "}
+          <Link
+            href={`/projects/${id}/modules/${endpoint.moduleId}`}
+            className="text-primary hover:underline"
+          >
+            {endpoint.moduleName}
+          </Link>
+        </p>
+      ) : null}
+      <EndpointSender
+        projectId={id}
+        endpoint={{
+          id: endpoint.id,
+          method: endpoint.method,
+          path: endpoint.path,
+          isDestructive: endpoint.isDestructive,
+          responseSchemas: endpoint.responseSchemas as Record<string, unknown> | null,
+        }}
+        environments={environments}
+        initial={initial}
+      />
     </>
   );
 }

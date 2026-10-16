@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { listRuns } from "@/db/runs";
 import { RunInputError, startRun } from "@/lib/run-service";
 
 const body = z.object({
@@ -10,6 +11,14 @@ const body = z.object({
   confirmDestructive: z.boolean().optional(),
   confirmEnvName: z.string().optional(),
   concurrency: z.number().int().min(1).max(4).optional(),
+  input: z
+    .object({
+      pathParams: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+      query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      headers: z.record(z.string(), z.string()).optional(),
+      body: z.unknown().optional(),
+    })
+    .optional(),
 });
 
 const err = (status: number, code: string, message: string) =>
@@ -26,4 +35,14 @@ export async function POST(req: Request) {
     if (e instanceof RunInputError) return err(e.status, e.code, e.message);
     throw e;
   }
+}
+
+/** Recent runs, newest first. Optional `projectId` and `limit` (max 200). */
+export async function GET(req: Request) {
+  const params = new URL(req.url).searchParams;
+  const projectId = params.get("projectId") ?? undefined;
+  if (projectId && !z.uuid().safeParse(projectId).success)
+    return err(400, "BAD_REQUEST", "Invalid projectId");
+  const limit = Number(params.get("limit")) || undefined;
+  return NextResponse.json({ runs: await listRuns({ projectId, limit }) });
 }
