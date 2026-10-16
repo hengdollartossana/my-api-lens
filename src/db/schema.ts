@@ -169,6 +169,16 @@ export const runs = pgTable(
     status: runStatusEnum("status").notNull().default("running"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
+    // Plain-English summary of the run's differences, generated once and re-shown from here.
+    aiSummary: jsonb("ai_summary").$type<{
+      text: string;
+      model: string;
+      costUsd: number;
+      inputTokens: number;
+      outputTokens: number;
+      findingCount: number;
+      createdAt: string;
+    }>(),
     ...timestamps,
   },
   (t) => [index("runs_project_started_idx").on(t.projectId, t.startedAt)],

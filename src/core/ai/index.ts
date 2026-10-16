@@ -10,4 +10,10 @@ export {
   estimateCostUsd,
   isKnownModel,
 } from "./pricing";
+export {
+  buildSummaryRequest,
+  MAX_SUMMARY_ITEMS,
+  type SummaryContext,
+  type SummaryDiffItem,
+} from "./summary";
 export * from "./types";

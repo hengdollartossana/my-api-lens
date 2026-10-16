@@ -9,6 +9,7 @@ import { JsonViewer } from "@/components/json-viewer";
 import { Button } from "@/components/ui/button";
 import { type RunResultItem, SKIP_LABELS } from "@/lib/run-types";
 import type { StatusKey } from "@/lib/ui-tokens";
+import { RunAiSummary } from "./run-ai-summary";
 import { useRun } from "./use-run";
 
 const fmt = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "medium" });
@@ -78,7 +79,16 @@ function ResultDetails({ r, finished }: { r: RunResultItem; finished: boolean })
 }
 
 /** Live view of one run: progress, cancel, and a row per endpoint with its status and severity. */
-export function RunView({ runId, initialOpen }: { runId: string; initialOpen?: string }) {
+export function RunView({
+  runId,
+  initialOpen,
+  showSummary = false,
+}: {
+  runId: string;
+  initialOpen?: string;
+  /** Show the AI summary block (the full run page does; embedded views do not). */
+  showSummary?: boolean;
+}) {
   const { data, error, isLoading } = useRun(runId);
   const [open, setOpen] = useState<Set<string>>(new Set(initialOpen ? [initialOpen] : []));
   const [cancelling, setCancelling] = useState(false);
@@ -138,6 +148,8 @@ export function RunView({ runId, initialOpen }: { runId: string; initialOpen?: s
           ) : null}
         </div>
       </div>
+
+      {showSummary ? <RunAiSummary runId={runId} finished={!running} /> : null}
 
       <div>
         <div
