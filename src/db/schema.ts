@@ -190,6 +190,10 @@ export const runResults = pgTable(
     responseBody: text("response_body"),
     diff: jsonb("diff"),
     severity: severityEnum("severity").notNull().default("ok"),
+    // Set when the endpoint was not called (e.g. destructive without confirmation).
+    skipReason: text("skip_reason"),
+    // Transport-level failure (timeout, network, blocked); no HTTP status in that case.
+    error: text("error"),
     ...timestamps,
   },
   (t) => [index("run_results_run_idx").on(t.runId)],
