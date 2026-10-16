@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { StatusBadge, ViaBadge } from "@/components/badges";
+import { AiGroupingPanel } from "@/components/modules/ai-grouping-panel";
 import { ModuleEndpoints } from "@/components/modules/module-endpoints";
 import { RenameModule } from "@/components/modules/rename-module";
 import { RunModulePanel } from "@/components/runs/run-module-panel";
 import { PageHeader } from "@/components/shell/page-header";
+import { UNGROUPED } from "@/core/grouper";
+import { aiEnabled } from "@/db/ai";
 import { listEnvironments } from "@/db/environments";
 import { getModule, listModules } from "@/db/modules";
 
@@ -36,6 +39,10 @@ export default async function ModulePage({
           </div>
         }
       />
+
+      {mod.name === UNGROUPED && endpoints.length > 0 ? (
+        <AiGroupingPanel projectId={id} aiEnabled={await aiEnabled()} />
+      ) : null}
 
       <div className="mb-6">
         <RunModulePanel
