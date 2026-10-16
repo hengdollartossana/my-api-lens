@@ -1,11 +1,11 @@
 "use client";
 
 import { Loader2, Play } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EnvironmentOption } from "@/db/environments";
+import { ConfirmDestructiveDialog } from "./confirm-destructive-dialog";
 import { RunView } from "./run-view";
 
 /**
@@ -25,19 +25,18 @@ export function RunModulePanel({
   destructiveCount: number;
   endpointCount: number;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const [envId, setEnvId] = useState(
     environments.find((e) => !e.isProd)?.id ?? environments[0]?.id ?? "",
   );
   const [includeDestructive, setIncludeDestructive] = useState(false);
-  const [typedName, setTypedName] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const env = environments.find((e) => e.id === envId);
 
-  async function start(confirmed: boolean) {
+  async function start(confirmed: boolean, typedName = "") {
     if (!env) return;
     setBusy(true);
     setError(null);
@@ -57,7 +56,7 @@ export function RunModulePanel({
         setError(data?.error?.message ?? `Could not start the run (HTTP ${res.status})`);
         return;
       }
-      dialog.current?.close();
+      setConfirmOpen(false);
       setRunId(data.runId);
     } catch {
       setError("Could not reach the server.");
@@ -68,8 +67,7 @@ export function RunModulePanel({
 
   function onRun() {
     setError(null);
-    setTypedName("");
-    if (includeDestructive && destructiveCount > 0) dialog.current?.showModal();
+    if (includeDestructive && destructiveCount > 0) setConfirmOpen(true);
     else void start(false);
   }
 
@@ -80,9 +78,6 @@ export function RunModulePanel({
       </p>
     );
   }
-
-  const needsName = !!env?.isProd;
-  const nameOk = !needsName || typedName === env?.name;
 
   return (
     <div className="flex flex-col gap-4">
@@ -127,61 +122,21 @@ export function RunModulePanel({
           Production environment: be careful.
         </p>
       ) : null}
-      {error && !dialog.current?.open ? (
+      {error && !confirmOpen ? (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {error}
         </p>
       ) : null}
 
-      <dialog
-        ref={dialog}
-        aria-labelledby="confirm-destructive-title"
-        className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-zinc-300 bg-background p-0 text-foreground backdrop:bg-black/50 dark:border-zinc-800"
-      >
-        <form
-          method="dialog"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void start(true);
-          }}
-          className="flex flex-col gap-3 p-4"
-        >
-          <h2 id="confirm-destructive-title" className="text-base font-semibold">
-            Run destructive endpoints?
-          </h2>
-          <p className="text-sm">
-            This will call {destructiveCount} POST/PUT/PATCH/DELETE endpoint
-            {destructiveCount === 1 ? "" : "s"} on <strong>{env?.name}</strong>. They can create,
-            change or delete data.
-          </p>
-          {needsName ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="confirm-env-name">
-                Type <code className="font-mono">{env?.name}</code> to confirm
-              </Label>
-              <Input
-                id="confirm-env-name"
-                autoComplete="off"
-                value={typedName}
-                onChange={(e) => setTypedName(e.target.value)}
-              />
-            </div>
-          ) : null}
-          {error ? (
-            <p role="alert" className="text-xs text-red-600 dark:text-red-400">
-              {error}
-            </p>
-          ) : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => dialog.current?.close()}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="destructive" size="sm" disabled={busy || !nameOk}>
-              Run including destructive
-            </Button>
-          </div>
-        </form>
-      </dialog>
+      <ConfirmDestructiveDialog
+        open={confirmOpen}
+        env={env}
+        count={destructiveCount}
+        busy={busy}
+        error={error}
+        onConfirm={(typed) => void start(true, typed)}
+        onCancel={() => setConfirmOpen(false)}
+      />
 
       {runId ? <RunView runId={runId} /> : null}
     </div>

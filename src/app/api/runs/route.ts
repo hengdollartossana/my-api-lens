@@ -11,6 +11,14 @@ const body = z.object({
   confirmDestructive: z.boolean().optional(),
   confirmEnvName: z.string().optional(),
   concurrency: z.number().int().min(1).max(4).optional(),
+  input: z
+    .object({
+      pathParams: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+      query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+      headers: z.record(z.string(), z.string()).optional(),
+      body: z.unknown().optional(),
+    })
+    .optional(),
 });
 
 const err = (status: number, code: string, message: string) =>

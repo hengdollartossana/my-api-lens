@@ -3,6 +3,7 @@ import {
   buildRequest,
   clampConcurrency,
   type ExecEndpoint,
+  type ExecInput,
   type ExecResult,
   executeWithAuth,
   resolveAuth,
@@ -61,6 +62,8 @@ export interface StartRunInput {
   confirmDestructive?: boolean;
   confirmEnvName?: string;
   concurrency?: number;
+  /** Edited request for a single-endpoint run (path/query params, headers, body). */
+  input?: ExecInput;
 }
 
 interface LiveRun {
@@ -139,6 +142,13 @@ export async function startRun(input: StartRunInput) {
 
   const rows = await loadEndpoints(input);
   if (rows.length === 0) throw new RunInputError(400, "NO_ENDPOINTS", "Nothing to run");
+  if (input.input && rows.length !== 1) {
+    throw new RunInputError(
+      400,
+      "BAD_REQUEST",
+      "A custom request can only be sent for a single endpoint",
+    );
+  }
 
   const [run] = await db
     .insert(runs)
@@ -199,7 +209,7 @@ async function execute(
             requestBodySchema: row.requestBodySchema ?? null,
           };
           result = await executeWithAuth(
-            (auth) => buildRequest(endpoint, ctx.env, {}, auth),
+            (auth) => buildRequest(endpoint, ctx.env, input.input ?? {}, auth),
             ctx,
             tokenCache,
             opts,
