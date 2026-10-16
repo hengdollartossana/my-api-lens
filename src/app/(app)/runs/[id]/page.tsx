@@ -22,7 +22,7 @@ export default async function RunPage({
           </Link>
         }
       />
-      <RunView runId={id} initialOpen={endpoint} />
+      <RunView runId={id} initialOpen={endpoint} showSummary />
     </>
   );
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "ai_summary" jsonb;
