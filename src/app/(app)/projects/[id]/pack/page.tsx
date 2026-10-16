@@ -1,19 +1,22 @@
-import { Package } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { notFound } from "next/navigation";
+import { z } from "zod";
+import { PackBuilder } from "@/components/pack/pack-builder";
 import { PageHeader } from "@/components/shell/page-header";
+import { listModules } from "@/db/modules";
 
-export default function PackPage() {
+export const dynamic = "force-dynamic";
+
+export default async function PackPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!z.uuid().safeParse(id).success) notFound();
+  const modules = await listModules(id);
   return (
     <>
       <PageHeader
         title="Context pack"
-        description="Choose modules and copy a low-token context pack (T-25)."
+        description="Choose modules and copy a low-token context pack for an AI assistant."
       />
-      <EmptyState
-        icon={Package}
-        title="Nothing here yet"
-        description="Choose modules and copy a low-token context pack (T-25)."
-      />
+      <PackBuilder projectId={id} modules={modules} />
     </>
   );
 }
