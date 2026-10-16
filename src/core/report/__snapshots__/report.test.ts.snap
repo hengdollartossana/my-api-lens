@@ -1,0 +1,35 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildDiffReport > matches the Markdown snapshot 1`] = `
+"# API diff report: Messy API
+
+Generated 2026-10-16T12:00:00.000Z. Spec vs reality, from each endpoint's latest run.
+
+## Summary
+
+| Errors | Warnings | Info | Endpoints compared | Matching the spec |
+|---:|---:|---:|---:|---:|
+| 2 | 0 | 1 | 2 | 0 |
+
+## Order
+
+### POST \`/api/v1/{tenant}/orders\`
+
+Environment: staging (PROD) · run 2026-10-16T10:00:00.000Z · HTTP 409
+
+| Severity | Kind | Path | Expected | Actual | Note |
+|---|---|---|---|---|---|
+| Error | Undocumented status | \`$status\` | \`["200","401"]\` | \`409\` | Status 409 is not documented |
+
+## User
+
+### GET \`/api/v1/{tenant}/users\`
+
+Environment: staging · run 2026-10-16T10:00:00.000Z · HTTP 200
+
+| Severity | Kind | Path | Expected | Actual | Note |
+|---|---|---|---|---|---|
+| Error | Missing required field | \`$[1].email\` | \`present\` |  | Required field "email" is missing |
+| Info | Extra field | \`$.internalNote\` |  | \`vip\` | Field "internalNote" is not in the spec |
+"
+`;

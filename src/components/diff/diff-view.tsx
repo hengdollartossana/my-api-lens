@@ -118,6 +118,18 @@ export function DiffView({
             </select>
           </div>
         ) : null}
+        <div className="flex items-center gap-3 text-xs">
+          {(["md", "html"] as const).map((f) => (
+            <a
+              key={f}
+              href={`/api/projects/${projectId}/diff/report?format=${f}${envId ? `&environmentId=${envId}` : ""}`}
+              download
+              className="text-primary hover:underline"
+            >
+              Export {f === "md" ? "Markdown" : "HTML"}
+            </a>
+          ))}
+        </div>
         <p className="ml-auto text-xs text-zinc-500" aria-live="polite">
           {counts.error} errors · {counts.warn} warnings · {counts.info} info · {clean} of{" "}
           {scoped.length} compared endpoints match
