@@ -160,6 +160,47 @@ describe.skipIf(!url)("diff in runs", () => {
     expect(post.statusCode).toBe(409);
   });
 
+  it("exports the report as Markdown and self-contained HTML with every mismatch and no tokens", async () => {
+    const { GET: REPORT } = await import("./report/route");
+    const get = (query: string) =>
+      REPORT(new Request(`http://app.test/report${query}`), {
+        params: Promise.resolve({ projectId }),
+      });
+
+    const md = await get("?format=md");
+    expect(md.status).toBe(200);
+    expect(md.headers.get("content-type")).toContain("text/markdown");
+    expect(md.headers.get("content-disposition")).toMatch(
+      /attachment; filename="api-diff-diff-\d+\.md"/,
+    );
+    const mdText = await md.text();
+    for (const needle of [
+      "$[1].email",
+      "$.internalNote",
+      "$[0].total.amount",
+      "$.shippingAddress",
+      "$status",
+    ]) {
+      expect(mdText).toContain(needle);
+    }
+    expect(mdText).toContain("| 3 | 1 | 1 |");
+
+    const html = await get("?format=html");
+    expect(html.headers.get("content-type")).toContain("text/html");
+    const htmlText = await html.text();
+    expect(htmlText).toContain("<!doctype html>");
+    expect(htmlText).not.toMatch(/<script|<link|https?:\/\/(?!app\.test)/i);
+    for (const text of [mdText, htmlText]) {
+      expect(text).not.toContain("mock-access-token");
+      expect(text).not.toMatch(/authorization|bearer /i);
+    }
+    expect((await get("?format=pdf")).status).toBe(400);
+    const missing = await REPORT(new Request("http://app.test/report"), {
+      params: Promise.resolve({ projectId: "00000000-0000-4000-8000-000000000000" }),
+    });
+    expect(missing.status).toBe(404);
+  });
+
   it("filters by environment and validates ids", async () => {
     expect(await diffRows(`?environmentId=00000000-0000-4000-8000-000000000000`)).toEqual([]);
     expect((await diffRows(`?environmentId=${envId}`)).length).toBeGreaterThan(0);
