@@ -4,8 +4,10 @@ import { Check, Copy, Download, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { StatusBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import type { ModuleSummary } from "@/db/modules";
+import { apiJson, messageOf } from "@/lib/api-client";
 
 interface PackResponse {
   markdown: string;
@@ -29,6 +31,7 @@ export function PackBuilder({
   const [pack, setPack] = useState<PackResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
 
   const ids = useMemo(() => [...selected].sort(), [selected]);
 
@@ -39,20 +42,17 @@ export function PackBuilder({
       return;
     }
     const ctrl = new AbortController();
-    fetch(`/api/projects/${projectId}/pack`, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ moduleIds: ids, preferObserved }),
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error?.message ?? "Could not build the pack");
-        setPack(data as PackResponse);
+    apiJson<PackResponse>(
+      `/api/projects/${projectId}/pack`,
+      { method: "POST", signal: ctrl.signal, json: { moduleIds: ids, preferObserved } },
+      "Could not build the pack",
+    )
+      .then((data) => {
+        setPack(data);
         setError(null);
       })
       .catch((e: unknown) => {
-        if ((e as Error).name !== "AbortError") setError((e as Error).message);
+        if ((e as Error).name !== "AbortError") setError(messageOf(e));
       });
     return () => ctrl.abort();
   }, [projectId, ids, preferObserved]);
@@ -79,8 +79,14 @@ export function PackBuilder({
 
   const copy = async () => {
     if (!pack) return;
-    await navigator.clipboard.writeText(pack.markdown);
+    try {
+      await navigator.clipboard.writeText(pack.markdown);
+    } catch {
+      toast.error("Could not copy: the browser blocked clipboard access");
+      return;
+    }
     setCopied(true);
+    toast.success("Context pack copied");
     setTimeout(() => setCopied(false), 1500);
   };
 
@@ -92,6 +98,7 @@ export function PackBuilder({
     a.download = "api-context.md";
     a.click();
     URL.revokeObjectURL(url);
+    toast.success("Downloaded api-context.md");
   };
 
   if (modules.length === 0) {

@@ -5,10 +5,12 @@ import { Download, FileCode, TriangleAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { StatusBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ModuleSummary } from "@/db/modules";
+import { apiJson, messageOf } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 interface GeneratedFile {
@@ -43,6 +45,7 @@ export function CodegenBuilder({
   const [result, setResult] = useState<CodegenResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<string | null>(null);
+  const toast = useToast();
 
   const ids = useMemo(() => [...selected].sort(), [selected]);
   const packageValid = /^[a-z][a-z0-9_]*$/.test(packageName);
@@ -53,26 +56,21 @@ export function CodegenBuilder({
       return;
     }
     const ctrl = new AbortController();
-    fetch(`/api/projects/${projectId}/codegen`, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        target: "flutter",
-        moduleIds: ids,
-        preferObserved,
-        contractTests,
-        packageName,
-      }),
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error?.message ?? "Could not generate code");
-        setResult(data as CodegenResponse);
+    apiJson<CodegenResponse>(
+      `/api/projects/${projectId}/codegen`,
+      {
+        method: "POST",
+        signal: ctrl.signal,
+        json: { target: "flutter", moduleIds: ids, preferObserved, contractTests, packageName },
+      },
+      "Could not generate code",
+    )
+      .then((data) => {
+        setResult(data);
         setError(null);
       })
       .catch((e: unknown) => {
-        if ((e as Error).name !== "AbortError") setError((e as Error).message);
+        if ((e as Error).name !== "AbortError") setError(messageOf(e));
       });
     return () => ctrl.abort();
   }, [projectId, ids, preferObserved, contractTests, packageName, packageValid]);
@@ -97,6 +95,7 @@ export function CodegenBuilder({
     a.download = `${slug(projectName)}-flutter.zip`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${files.length} files as a zip`);
   };
 
   if (modules.length === 0) {

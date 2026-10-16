@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MethodBadge } from "@/components/badges";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import type { GroupingProposalResult, GroupingSuggestion } from "@/db/ai-grouping";
+import { apiJson, messageOf } from "@/lib/api-client";
 
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 4 : 2)}`;
 
@@ -26,21 +28,21 @@ export function AiGroupingPanel({
   const [result, setResult] = useState<GroupingProposalResult | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const toast = useToast();
 
   async function suggest() {
     setBusy(true);
     setError(null);
-    setDone(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/ai/grouping`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message ?? "Could not get suggestions");
-      const r = data as GroupingProposalResult;
+      const r = await apiJson<GroupingProposalResult>(
+        `/api/projects/${projectId}/ai/grouping`,
+        { method: "POST" },
+        "Could not get suggestions",
+      );
       setResult(r);
       setPicked(new Set(r.suggestions.map((s) => s.stableKey)));
     } catch (e) {
-      setError((e as Error).message);
+      setError(messageOf(e));
     } finally {
       setBusy(false);
     }
@@ -54,18 +56,16 @@ export function AiGroupingPanel({
       const assignments = result.suggestions
         .filter((s) => picked.has(s.stableKey))
         .map((s) => ({ stableKey: s.stableKey, module: s.module }));
-      const res = await fetch(`/api/projects/${projectId}/ai/grouping/apply`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ assignments }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message ?? "Could not apply");
-      setDone(`Moved ${data.applied} endpoint${data.applied === 1 ? "" : "s"}.`);
+      const data = await apiJson<{ applied: number }>(
+        `/api/projects/${projectId}/ai/grouping/apply`,
+        { method: "POST", json: { assignments } },
+        "Could not apply",
+      );
+      toast.success(`Moved ${data.applied} endpoint${data.applied === 1 ? "" : "s"}`);
       setResult(null);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(messageOf(e));
     } finally {
       setBusy(false);
     }
@@ -112,7 +112,6 @@ export function AiGroupingPanel({
           {error}
         </p>
       ) : null}
-      {done ? <p className="text-sm text-green-600 dark:text-green-400">{done}</p> : null}
 
       {result ? (
         <div className="flex flex-col gap-3">

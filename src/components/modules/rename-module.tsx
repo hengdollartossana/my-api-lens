@@ -3,6 +3,7 @@
 import { Loader2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ export function RenameModule({
   name: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const dialog = useRef<HTMLDialogElement>(null);
   const [value, setValue] = useState(name);
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,7 @@ export function RenameModule({
         return;
       }
       dialog.current?.close();
+      toast.success("Module renamed");
       router.refresh();
     } catch {
       setError("Could not reach the server.");
