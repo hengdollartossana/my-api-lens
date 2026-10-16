@@ -26,6 +26,10 @@ export interface CodegenModule {
 export interface FlutterOptions {
   /** Prefer observed responses (nullability and extra fields) over the spec. */
   preferObserved?: boolean;
+  /** Also generate `test/api/*_contract_test.dart` (http_mock_adapter) from recorded responses. */
+  contractTests?: boolean;
+  /** Dart package name used in the generated test imports. Default: `app`. */
+  packageName?: string;
   /** Directory holding the .eta templates. Default: `<cwd>/templates/flutter`. */
   templatesDir?: string;
 }

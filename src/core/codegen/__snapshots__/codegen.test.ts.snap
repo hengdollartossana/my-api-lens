@@ -1,5 +1,15 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`flutter contract tests > matches the golden files 1`] = `
+[
+  "test/api/fixtures/user/create_request.json",
+  "test/api/fixtures/user/create.json",
+  "test/api/fixtures/user/find_all.json",
+  "test/api/README.md",
+  "test/api/user_contract_test.dart",
+]
+`;
+
 exports[`flutter golden files > generates messy-v3 1`] = `
 [
   "lib/api/api_exception.dart",
