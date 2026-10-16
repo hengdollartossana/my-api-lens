@@ -3,7 +3,7 @@
 import { Ban, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useState } from "react";
-import { MethodBadge, StatusBadge } from "@/components/badges";
+import { EnvBadge, MethodBadge, StatusBadge } from "@/components/badges";
 import { JsonViewer } from "@/components/json-viewer";
 import { Button } from "@/components/ui/button";
 import { type RunResultItem, SKIP_LABELS } from "@/lib/run-types";
@@ -113,11 +113,7 @@ export function RunView({ runId }: { runId: string }) {
         <span className="text-xs text-zinc-500">
           {run.projectName} · {run.environmentName}
         </span>
-        {run.isProd ? (
-          <span className="rounded border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-red-600 dark:text-red-400">
-            prod
-          </span>
-        ) : null}
+        <EnvBadge isProd={run.isProd} />
         <span className="text-xs text-zinc-500">{fmt.format(new Date(run.startedAt))}</span>
         <div className="ml-auto flex items-center gap-2">
           <Link href={`/runs/${run.id}`} className="text-xs text-primary hover:underline">

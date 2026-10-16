@@ -32,3 +32,19 @@ export function ViaBadge({ via, className }: { via: ViaKey; className?: string }
     </span>
   );
 }
+
+/** Red PROD marker; shown wherever an environment name appears so production is never mistaken. */
+export function EnvBadge({ isProd, className }: { isProd: boolean; className?: string }) {
+  if (!isProd) return null;
+  return (
+    <span
+      className={cn(
+        pill,
+        "border border-red-500/40 bg-red-500/10 font-semibold uppercase text-red-600 dark:text-red-400",
+        className,
+      )}
+    >
+      prod
+    </span>
+  );
+}

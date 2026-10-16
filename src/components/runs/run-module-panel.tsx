@@ -2,6 +2,8 @@
 
 import { Loader2, Play } from "lucide-react";
 import { useState } from "react";
+import { EnvBadge } from "@/components/badges";
+import { useEnvironmentSelection } from "@/components/environments/use-environment-selection";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { EnvironmentOption } from "@/db/environments";
@@ -25,16 +27,12 @@ export function RunModulePanel({
   destructiveCount: number;
   endpointCount: number;
 }) {
-  const [envId, setEnvId] = useState(
-    environments.find((e) => !e.isProd)?.id ?? environments[0]?.id ?? "",
-  );
+  const [env, selectEnv] = useEnvironmentSelection(projectId, environments);
   const [includeDestructive, setIncludeDestructive] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const env = environments.find((e) => e.id === envId);
 
   async function start(confirmed: boolean, typedName = "") {
     if (!env) return;
@@ -86,8 +84,8 @@ export function RunModulePanel({
           <Label htmlFor="run-env">Environment</Label>
           <select
             id="run-env"
-            value={envId}
-            onChange={(e) => setEnvId(e.target.value)}
+            value={env?.id ?? ""}
+            onChange={(e) => selectEnv(e.target.value)}
             className="h-9 rounded-md border border-zinc-300 bg-background px-2 text-sm dark:border-zinc-800"
           >
             {environments.map((e) => (

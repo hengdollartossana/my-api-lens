@@ -9,7 +9,7 @@ export default function SettingsPage() {
       <EmptyState
         icon={Settings}
         title="Nothing to configure yet"
-        description="Environment and auth settings arrive with T-13 and T-16."
+        description="Environments are per project: open a project and use its Settings tab. AI keys arrive with T-29."
       />
     </>
   );

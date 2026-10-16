@@ -8,6 +8,11 @@ import type { JsonObject, ParsedSpec, ParseInput } from "./types";
 export { type ParseErrorCode, ParseSpecError } from "./errors";
 export { FETCH_TIMEOUT_MS, fetchSpecText, MAX_SPEC_BYTES } from "./fetch";
 export { isDestructive, stableKey } from "./normalize";
+
+/** Server base URLs declared by a stored spec (OpenAPI 3 `servers`, Swagger 2 `host`+`basePath`). */
+export function serversOf(raw: Record<string, unknown>): string[] {
+  return normalizeServers(raw, raw.swagger === "2.0");
+}
 export type { NormalizedEndpoint, NormalizedParameter, ParsedSpec, ParseInput } from "./types";
 
 /** Stable JSON: object keys sorted so formatting/key order never changes the hash. */

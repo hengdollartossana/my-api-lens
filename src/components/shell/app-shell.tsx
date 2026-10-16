@@ -1,18 +1,16 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Folder, type LucideIcon, Play, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { EnvBadge } from "@/components/badges";
+import { useEnvironmentSelection } from "@/components/environments/use-environment-selection";
 import { LogoutButton } from "@/components/logout-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import {
-  isActive,
-  NAV_ITEMS,
-  PLACEHOLDER_ENVIRONMENTS,
-  PLACEHOLDER_PROJECTS,
-  projectIdFromPath,
-} from "@/lib/ui-tokens";
+import type { EnvironmentRecord } from "@/db/environments";
+import { isActive, NAV_ITEMS, projectIdFromPath } from "@/lib/ui-tokens";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = { folder: Folder, play: Play, settings: Settings };
@@ -20,48 +18,78 @@ const ICONS: Record<string, LucideIcon> = { folder: Folder, play: Play, settings
 const selectClass =
   "h-8 rounded-md border border-zinc-300 bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary dark:border-zinc-800";
 
+const isUuid = (s: string | null): s is string => !!s && /^[0-9a-f-]{36}$/i.test(s);
+
 function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const projectId = projectIdFromPath(pathname) ?? "";
-  const [env, setEnv] = useState(PLACEHOLDER_ENVIRONMENTS[0]?.name ?? "");
-  const isProd = PLACEHOLDER_ENVIRONMENTS.find((e) => e.name === env)?.isProd ?? false;
+  const pathProject = projectIdFromPath(pathname);
+  const projectId = isUuid(pathProject) ? pathProject : null;
+
+  const projects = useQuery({
+    queryKey: ["projects"],
+    queryFn: async (): Promise<{ id: string; name: string }[]> => {
+      const res = await fetch("/api/projects");
+      if (!res.ok) throw new Error("projects");
+      return (await res.json()).projects;
+    },
+  });
+  const envs = useQuery({
+    queryKey: ["environments", projectId],
+    enabled: !!projectId,
+    queryFn: async (): Promise<EnvironmentRecord[]> => {
+      const res = await fetch(`/api/projects/${projectId}/environments`);
+      if (!res.ok) throw new Error("environments");
+      return (await res.json()).environments;
+    },
+  });
+  const [env, selectEnv] = useEnvironmentSelection(projectId, envs.data ?? []);
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b border-zinc-200 px-3 dark:border-zinc-800">
       <select
         aria-label="Project"
         className={cn(selectClass, "max-w-40")}
-        value={projectId}
+        value={projectId ?? ""}
         onChange={(e) => router.push(e.target.value ? `/projects/${e.target.value}` : "/projects")}
       >
         <option value="">All projects</option>
-        {PLACEHOLDER_PROJECTS.map((p) => (
+        {projects.data?.map((p) => (
           <option key={p.id} value={p.id}>
             {p.name}
           </option>
         ))}
       </select>
-      <select
-        aria-label="Environment"
-        className={cn(
-          selectClass,
-          "max-w-32",
-          isProd && "border-red-500/60 text-red-600 dark:text-red-400",
-        )}
-        value={env}
-        onChange={(e) => setEnv(e.target.value)}
-      >
-        {PLACEHOLDER_ENVIRONMENTS.map((e) => (
-          <option key={e.name} value={e.name}>
-            {e.name}
-          </option>
-        ))}
-      </select>
-      {isProd ? (
-        <span className="rounded border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-red-600 dark:text-red-400">
-          prod
-        </span>
+      {projectId ? (
+        envs.data && envs.data.length > 0 ? (
+          <>
+            <select
+              aria-label="Environment"
+              className={cn(
+                selectClass,
+                "max-w-32",
+                env?.isProd && "border-red-500/60 text-red-600 dark:text-red-400",
+              )}
+              value={env?.id ?? ""}
+              onChange={(e) => selectEnv(e.target.value)}
+            >
+              {envs.data.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                  {e.isProd ? " (prod)" : ""}
+                </option>
+              ))}
+            </select>
+            <EnvBadge isProd={!!env?.isProd} />
+          </>
+        ) : envs.isSuccess ? (
+          <Link
+            href={`/projects/${projectId}/settings`}
+            className="text-xs text-primary hover:underline"
+          >
+            Add an environment
+          </Link>
+        ) : null
       ) : null}
       <div className="ml-auto flex items-center gap-1">
         <ThemeToggle />
