@@ -1,6 +1,8 @@
 import { resolve as resolvePath } from "node:path";
 import { Eta } from "eta";
+import { sampleFromSchema } from "../executor/sample";
 import type { Shape } from "../pack/shape";
+import { redactJson } from "../report/redact";
 import { type CallItem, call, dartString, indent, namedParams, WIDTH } from "./dart";
 import { type DartModel, ModelRegistry, observedShape, reconcile, specShape } from "./models";
 import { camelCase, operationName, pascalCase, resourceName, safeIdent, snakeCase } from "./names";
@@ -18,6 +20,17 @@ interface Arg {
   name: string;
 }
 
+/** What a contract test needs to call one endpoint against its recorded response. */
+interface TestPlan {
+  /** Route with sample path values filled in (raw, not yet a Dart literal). */
+  route: string;
+  /** Call-site arguments, e.g. `tenant: 'sample'`. */
+  args: string[];
+  /** Entries of the expected query map, e.g. `'offset': 1`. */
+  query: string[];
+  body: { type: string; sample: unknown } | null;
+}
+
 interface Plan {
   method: string;
   name: string;
@@ -27,10 +40,21 @@ interface Plan {
   /** Statements that turn `response.data` into the return value. */
   decode: string[];
   path: string;
+  /** The path as written in the spec, e.g. `/users/{id}`. */
+  specPath: string;
   httpMethod: string;
   query: { name: string; key: string; required: boolean }[];
   body: { name: string; toJson: boolean } | null;
+  /** Null when the endpoint cannot be exercised with simple sample arguments. */
+  test: TestPlan | null;
 }
+
+const SAMPLE_VALUES: Record<string, { expr: string; raw: string }> = {
+  String: { expr: "'sample'", raw: "sample" },
+  int: { expr: "1", raw: "1" },
+  double: { expr: "1.5", raw: "1.5" },
+  bool: { expr: "true", raw: "true" },
+};
 
 function successOf(
   e: CodegenEndpoint,
@@ -134,6 +158,8 @@ function plan(
   const args: Arg[] = [];
   const nameOf = new Map<string, string>();
   const query: Plan["query"] = [];
+  const test: TestPlan = { route: e.path, args: [], query: [], body: null };
+  let testable = true;
   const paramType = (schema: unknown, hint: string) => {
     const shape = specShape(schema);
     if (shape.k === "obj") return "dynamic";
@@ -143,6 +169,11 @@ function plan(
   for (const p of e.parameters.filter((x) => x.in === "path")) {
     const ident = safeIdent(camelCase(p.name));
     nameOf.set(p.name, ident);
+    const sample = SAMPLE_VALUES[paramType(p.schema, ident).replace(/\?$/, "")];
+    if (sample) {
+      test.route = test.route.replace(`{${p.name}}`, sample.raw);
+      test.args.push(`${ident}: ${sample.expr}`);
+    } else testable = false;
     args.push({
       decl: `required ${paramType(p.schema, ident)} ${ident}`,
       pass: `${ident}: ${ident}`,
@@ -154,6 +185,10 @@ function plan(
     const shape = specShape(e.requestBodySchema);
     const t = reg.resolve(shape, bodyHint(e));
     body = { name: "body", toJson: shape.k === "obj" };
+    const sample = sampleFromSchema(e.requestBodySchema);
+    if (shape.k === "obj" && sample && typeof sample === "object" && !Array.isArray(sample)) {
+      test.body = { type: reg.withNull(t).replace(/\?$/, ""), sample };
+    } else testable = false;
     args.push({ decl: `required ${reg.withNull(t)} body`, pass: "body: body", name: "body" });
   }
   for (const p of e.parameters.filter((x) => x.in === "query")) {
@@ -167,6 +202,13 @@ function plan(
       name: ident,
     });
     query.push({ name: ident, key: p.name, required: p.required });
+    if (p.required) {
+      const sample = SAMPLE_VALUES[type];
+      if (sample) {
+        test.args.push(`${ident}: ${sample.expr}`);
+        test.query.push(`${dartString(p.name)}: ${sample.expr}`);
+      } else testable = false;
+    }
   }
 
   const success = successOf(e, options);
@@ -183,9 +225,11 @@ function plan(
     returnType: decoded ? decoded.type : "void",
     decode: decoded ? decoded.lines : [],
     path: pathLiteral(e.path, nameOf),
+    specPath: e.path,
     httpMethod: e.method.toLowerCase(),
     query,
     body,
+    test: testable ? test : null,
   };
 }
 
@@ -311,6 +355,139 @@ function modelFile(eta: Eta, m: DartModel): GeneratedFile {
   };
 }
 
+const MOCK_METHOD: Record<string, string> = {
+  get: "onGet",
+  post: "onPost",
+  put: "onPut",
+  patch: "onPatch",
+  delete: "onDelete",
+};
+
+interface ContractCase {
+  plan: Plan;
+  test: TestPlan;
+  status: number;
+  fixture: string;
+  requestFixture: string | null;
+}
+
+function contractTest(c: ContractCase): string {
+  const { plan: p, test: t } = c;
+  const fixture = (name: string) => `_fixture(${dartString(name)})`;
+  const reply = fixture(c.fixture);
+  const items: CallItem[] = [
+    dartString(t.route),
+    {
+      single: `(server) => server.reply(${c.status}, ${reply})`,
+      multi: `(server) => server.reply(\n  ${c.status},\n  ${reply},\n)`,
+    },
+  ];
+  if (t.query.length) items.push(`queryParameters: {${t.query.join(", ")}}`);
+  if (t.body) items.push("data: Matchers.any");
+
+  const args: CallItem[] = [...t.args];
+  if (t.body && c.requestFixture) {
+    const json = `${fixture(c.requestFixture)} as Map<String, dynamic>`;
+    args.push({
+      single: `body: ${t.body.type}.fromJson(${json})`,
+      multi: `body: ${t.body.type}.fromJson(\n  ${json},\n)`,
+    });
+  }
+  const invoke = call(
+    `${p.returnType === "void" ? "await" : "final result = await"} client.${p.name}`,
+    args,
+    ";",
+    2,
+  );
+  const lines = [
+    `  test(${dartString(`${p.method} ${p.specPath}`)}, () async {`,
+    call(`adapter.${MOCK_METHOD[p.httpMethod]}`, items, ";", 2),
+    invoke,
+  ];
+  if (p.returnType !== "void") lines.push(`${indent(2)}expect(result, isNotNull);`);
+  lines.push("  });");
+  return lines.join("\n");
+}
+
+const CONTRACT_README = `# API contract tests
+
+Generated by API Lens. Each test replays a response recorded from a real run
+(\`fixtures/\`, credentials removed) through \`http_mock_adapter\` and checks that the
+generated client still decodes it.
+
+Add these to \`pubspec.yaml\`:
+
+\`\`\`yaml
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  http_mock_adapter: ^0.6.1
+\`\`\`
+
+Run from the package root:
+
+\`\`\`sh
+flutter test test/api
+\`\`\`
+`;
+
+function contractFiles(
+  eta: Eta,
+  modules: CodegenModule[],
+  dirs: string[],
+  plansByModule: Plan[][],
+  options: FlutterOptions,
+): GeneratedFile[] {
+  const files: GeneratedFile[] = [];
+  const pkg = options.packageName ?? "app";
+  modules.forEach((m, mi) => {
+    const dir = dirs[mi] as string;
+    const cases: ContractCase[] = [];
+    const plans = plansByModule[mi] as Plan[];
+    m.endpoints.forEach((e, i) => {
+      const plan = plans[i] as Plan;
+      const o = e.observed;
+      if (!plan.test || !MOCK_METHOD[plan.httpMethod] || !o || o.status < 200 || o.status > 299)
+        return;
+      const base = `${dir}/${snakeCase(plan.name)}`;
+      cases.push({
+        plan,
+        test: plan.test,
+        status: o.status,
+        fixture: `${base}.json`,
+        requestFixture: plan.test.body ? `${base}_request.json` : null,
+      });
+      files.push({
+        path: `test/api/fixtures/${base}.json`,
+        content: `${JSON.stringify(redactJson(o.body ?? null), null, 2)}\n`,
+      });
+      if (plan.test.body) {
+        files.push({
+          path: `test/api/fixtures/${base}_request.json`,
+          content: `${JSON.stringify(plan.test.body.sample, null, 2)}\n`,
+        });
+      }
+    });
+    if (!cases.length) return;
+    files.push({
+      path: `test/api/${dir}_contract_test.dart`,
+      content: eta.render("contract_test.dart.eta", {
+        header: GENERATED,
+        clientClass: `${pascalCase(m.name)}Client`,
+        imports: `${importBlock(["dart:convert", "dart:io"])}\n\n${importBlock([
+          "package:dio/dio.dart",
+          "package:flutter_test/flutter_test.dart",
+          "package:http_mock_adapter/http_mock_adapter.dart",
+          `package:${pkg}/api/api.dart`,
+        ])}`,
+        tests: cases.map(contractTest).join("\n\n"),
+      }),
+    });
+  });
+  if (files.length) files.push({ path: "test/api/README.md", content: CONTRACT_README });
+  return files;
+}
+
 export function generateFlutter(
   modules: CodegenModule[],
   options: FlutterOptions = {},
@@ -329,6 +506,7 @@ export function generateFlutter(
 
   const files: GeneratedFile[] = [];
   const moduleDirs: string[] = [];
+  const allPlans: Plan[][] = [];
   const usedDirs = new Set<string>();
 
   for (const m of modules) {
@@ -340,6 +518,7 @@ export function generateFlutter(
     const cls = pascalCase(m.name);
     const taken = new Set<string>();
     const plans = m.endpoints.map((e) => plan(e, reg, taken, options));
+    allPlans.push(plans);
     const methods = (fn: (p: Plan) => string) => plans.map(fn).join("\n\n");
 
     files.push({
@@ -399,6 +578,9 @@ export function generateFlutter(
       ].sort(),
     }),
   });
+
+  if (options.contractTests)
+    files.push(...contractFiles(eta, modules, moduleDirs, allPlans, options));
 
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }

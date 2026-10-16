@@ -228,6 +228,60 @@ describe("flutter golden files", () => {
   });
 });
 
+describe("flutter contract tests", () => {
+  const observed: Record<string, { status: number; body: unknown }> = {
+    "GET /api/v1/{tenant}/users": {
+      status: 200,
+      body: [{ id: "u1", email: "a@b.c", name: "A", accessToken: "abc123" }],
+    },
+    "POST /api/v1/{tenant}/users": {
+      status: 201,
+      body: { id: "u2", email: "x@y.z", name: "B" },
+    },
+    "GET /api/v1/{tenant}/orders/{orderId}": { status: 404, body: { message: "no" } },
+  };
+  async function generate() {
+    const modules = (await messyModules()).map((m) => ({
+      ...m,
+      endpoints: m.endpoints.map((e) => ({ ...e, observed: observed[`${e.method} ${e.path}`] })),
+    })) as CodegenModule[];
+    return generateFlutter(modules, { contractTests: true, packageName: "my_app" });
+  }
+
+  it("is off by default", async () => {
+    const files = generateFlutter(await messyModules());
+    expect(files.some((f) => f.path.startsWith("test/"))).toBe(false);
+  });
+
+  it("matches the golden files", async () => {
+    const files = (await generate()).filter((f) => f.path.startsWith("test/"));
+    expect(files.map((f) => f.path)).toMatchSnapshot();
+    for (const f of files) {
+      await expect(f.content).toMatchFileSnapshot(`./__golden__/messy-contract/${f.path}`);
+    }
+  });
+
+  it("only uses recorded 2xx data, with credentials removed", async () => {
+    const files = (await generate()).filter((f) => f.path.startsWith("test/"));
+    const text = files.map((f) => f.content).join("\n");
+    expect(text).not.toContain("abc123");
+    expect(text).toContain("[REDACTED]");
+    expect(text).not.toContain('"no"'); // the 404 is not replayed
+    expect(text).not.toMatch(/https?:\/\/|Bearer/i);
+    expect(files.find((f) => f.path.endsWith("README.md"))?.content).toContain("http_mock_adapter");
+  });
+
+  it.skipIf(!dartAvailable)("generated tests are already formatted", async () => {
+    const dir = writeAll(await generate());
+    const res = spawnSync("dart", ["format", "--output=none", "--set-exit-if-changed", "test"], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+    expect(res.stdout + res.stderr, `${res.stdout}${res.stderr}`).not.toMatch(/^Changed /m);
+    expect(res.status).toBe(0);
+  });
+});
+
 describe("flutter output rules", () => {
   const files = generateFlutter(stressModules());
   const get = (path: string) => (files.find((f) => f.path === path) as GeneratedFile).content;

@@ -45,3 +45,8 @@ export function safeText(text: string): string {
   const cut = text.length > MAX_VALUE_CHARS ? `${text.slice(0, MAX_VALUE_CHARS)}…` : text;
   return cut.replace(JWT, REDACTED).replace(BEARER, REDACTED);
 }
+
+/** Deep copy of a JSON value with credentials replaced, for data that gets written into shared files. */
+export function redactJson(value: unknown): unknown {
+  return scrub(value);
+}

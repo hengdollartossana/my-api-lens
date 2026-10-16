@@ -1,0 +1,18 @@
+<%~ it.header %>
+<%~ it.imports %>
+
+dynamic _fixture(String name) =>
+    jsonDecode(File('test/api/fixtures/$name').readAsStringSync());
+
+void main() {
+  late DioAdapter adapter;
+  late <%~ it.clientClass %> client;
+
+  setUp(() {
+    final dio = Dio();
+    adapter = DioAdapter(dio: dio);
+    client = <%~ it.clientClass %>(dio);
+  });
+
+<%~ it.tests %>
+}
