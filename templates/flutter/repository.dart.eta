@@ -1,0 +1,10 @@
+<%~ it.header %>
+<%~ it.imports %>
+
+class <%~ it.className %> {
+  <%~ it.className %>(this._client);
+
+  final <%~ it.clientClass %> _client;
+
+<%~ it.methods %>
+}

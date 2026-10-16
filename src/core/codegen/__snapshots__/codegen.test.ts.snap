@@ -1,0 +1,27 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`flutter golden files > generates messy-v3 1`] = `
+[
+  "lib/api/api_exception.dart",
+  "lib/api/api.dart",
+  "lib/api/auth/auth_client.dart",
+  "lib/api/auth/auth_repository.dart",
+  "lib/api/auth/auth.dart",
+  "lib/api/models/address.dart",
+  "lib/api/models/create_login_body.dart",
+  "lib/api/models/create_refresh_body.dart",
+  "lib/api/models/create_user_body.dart",
+  "lib/api/models/line.dart",
+  "lib/api/models/login.dart",
+  "lib/api/models/models.dart",
+  "lib/api/models/order.dart",
+  "lib/api/models/total.dart",
+  "lib/api/models/user.dart",
+  "lib/api/order/order_client.dart",
+  "lib/api/order/order_repository.dart",
+  "lib/api/order/order.dart",
+  "lib/api/user/user_client.dart",
+  "lib/api/user/user_repository.dart",
+  "lib/api/user/user.dart",
+]
+`;

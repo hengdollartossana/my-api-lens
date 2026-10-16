@@ -1,0 +1,12 @@
+<%~ it.header %>
+<%~ it.imports %>
+
+part '<%~ it.file %>.freezed.dart';
+part '<%~ it.file %>.g.dart';
+
+@freezed
+class <%~ it.name %> with _$<%~ it.name %> {
+<%~ it.constructor %>
+
+<%~ it.fromJson %>
+}

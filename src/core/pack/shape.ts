@@ -1,6 +1,11 @@
 /** A small type tree between JSON Schema and TypeScript, so structurally equal types can be deduplicated. */
 export type Shape =
-  | { k: "prim"; t: "string" | "number" | "boolean" | "null" | "unknown" }
+  | {
+      k: "prim";
+      t: "string" | "number" | "boolean" | "null" | "unknown";
+      format?: string;
+      int?: boolean;
+    }
   | { k: "lit"; values: (string | number | boolean | null)[] }
   | { k: "arr"; item: Shape }
   | { k: "rec"; value: Shape }
@@ -8,6 +13,11 @@ export type Shape =
   | { k: "union"; types: Shape[] };
 
 type Schema = Record<string, unknown>;
+
+/** `precise` keeps string formats and the integer/number split (used by code generators). */
+export interface ShapeOptions {
+  precise?: boolean;
+}
 const isObj = (v: unknown): v is Schema => !!v && typeof v === "object" && !Array.isArray(v);
 const MAX_DEPTH = 8;
 
@@ -40,7 +50,7 @@ function mergeAllOf(parts: unknown[]): Schema {
 }
 
 /** Convert a (dereferenced) JSON schema to a Shape. */
-export function schemaToShape(schema: unknown, depth = 0): Shape {
+export function schemaToShape(schema: unknown, depth = 0, opts: ShapeOptions = {}): Shape {
   if (!isObj(schema) || depth > MAX_DEPTH) return unknownShape;
   const nullable = schema.nullable === true;
   const withNull = (s: Shape) => (nullable ? union([s, nullShape]) : s);
@@ -50,26 +60,29 @@ export function schemaToShape(schema: unknown, depth = 0): Shape {
   }
   if (schema.const !== undefined) return withNull({ k: "lit", values: [schema.const as string] });
   if (Array.isArray(schema.allOf))
-    return withNull(schemaToShape(mergeAllOf(schema.allOf), depth + 1));
+    return withNull(schemaToShape(mergeAllOf(schema.allOf), depth + 1, opts));
   for (const key of ["oneOf", "anyOf"] as const) {
     const options = schema[key];
     if (Array.isArray(options) && options.length) {
-      return withNull(union(options.map((o) => schemaToShape(o, depth + 1))));
+      return withNull(union(options.map((o) => schemaToShape(o, depth + 1, opts))));
     }
   }
 
   const rawType = Array.isArray(schema.type)
     ? schema.type
     : [schema.type ?? (isObj(schema.properties) ? "object" : undefined)];
-  const types = (rawType as unknown[]).map((t) => objectOrScalar(schema, t, depth));
+  const types = (rawType as unknown[]).map((t) => objectOrScalar(schema, t, depth, opts));
   return withNull(union(types));
 }
 
-function objectOrScalar(schema: Schema, type: unknown, depth: number): Shape {
+function objectOrScalar(schema: Schema, type: unknown, depth: number, opts: ShapeOptions): Shape {
   switch (type) {
     case "string":
-      return { k: "prim", t: "string" };
+      return opts.precise && typeof schema.format === "string"
+        ? { k: "prim", t: "string", format: schema.format }
+        : { k: "prim", t: "string" };
     case "integer":
+      return opts.precise ? { k: "prim", t: "number", int: true } : { k: "prim", t: "number" };
     case "number":
       return { k: "prim", t: "number" };
     case "boolean":
@@ -77,13 +90,13 @@ function objectOrScalar(schema: Schema, type: unknown, depth: number): Shape {
     case "null":
       return nullShape;
     case "array":
-      return { k: "arr", item: schemaToShape(schema.items, depth + 1) };
+      return { k: "arr", item: schemaToShape(schema.items, depth + 1, opts) };
     case "object": {
       const props = isObj(schema.properties) ? schema.properties : {};
       const required = new Set(Array.isArray(schema.required) ? (schema.required as string[]) : []);
       if (Object.keys(props).length === 0) {
         return isObj(schema.additionalProperties)
-          ? { k: "rec", value: schemaToShape(schema.additionalProperties, depth + 1) }
+          ? { k: "rec", value: schemaToShape(schema.additionalProperties, depth + 1, opts) }
           : { k: "rec", value: unknownShape };
       }
       return {
@@ -92,7 +105,7 @@ function objectOrScalar(schema: Schema, type: unknown, depth: number): Shape {
         props: Object.entries(props).map(([name, s]) => ({
           name,
           optional: !required.has(name),
-          type: schemaToShape(s, depth + 1),
+          type: schemaToShape(s, depth + 1, opts),
         })),
       };
     }
@@ -102,20 +115,24 @@ function objectOrScalar(schema: Schema, type: unknown, depth: number): Shape {
 }
 
 /** Infer a Shape from an observed JSON value. */
-export function valueToShape(value: unknown, depth = 0): Shape {
+export function valueToShape(value: unknown, depth = 0, opts: ShapeOptions = {}): Shape {
   if (value === null) return nullShape;
   if (depth > MAX_DEPTH) return unknownShape;
   if (Array.isArray(value)) {
     return {
       k: "arr",
-      item: value.length ? mergeShapes(value.map((v) => valueToShape(v, depth + 1))) : unknownShape,
+      item: value.length
+        ? mergeShapes(value.map((v) => valueToShape(v, depth + 1, opts)))
+        : unknownShape,
     };
   }
   switch (typeof value) {
     case "string":
       return { k: "prim", t: "string" };
     case "number":
-      return { k: "prim", t: "number" };
+      return opts.precise && Number.isInteger(value)
+        ? { k: "prim", t: "number", int: true }
+        : { k: "prim", t: "number" };
     case "boolean":
       return { k: "prim", t: "boolean" };
     case "object":
@@ -124,7 +141,7 @@ export function valueToShape(value: unknown, depth = 0): Shape {
         props: Object.entries(value as Schema).map(([name, v]) => ({
           name,
           optional: false,
-          type: valueToShape(v, depth + 1),
+          type: valueToShape(v, depth + 1, opts),
         })),
       };
     default:

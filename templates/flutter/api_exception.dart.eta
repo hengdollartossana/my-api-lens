@@ -1,0 +1,30 @@
+<%~ it.header %>
+import 'package:dio/dio.dart';
+
+/// Error raised by the generated repositories.
+class ApiException implements Exception {
+  const ApiException({
+    required this.message,
+    this.statusCode,
+    this.data,
+    this.cause,
+  });
+
+  /// Wraps a [DioException], keeping the HTTP status and response body.
+  factory ApiException.fromDio(DioException error) {
+    return ApiException(
+      message: error.message ?? 'Request failed',
+      statusCode: error.response?.statusCode,
+      data: error.response?.data,
+      cause: error,
+    );
+  }
+
+  final String message;
+  final int? statusCode;
+  final Object? data;
+  final Object? cause;
+
+  @override
+  String toString() => 'ApiException($statusCode): $message';
+}
