@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { StatusBadge, ViaBadge } from "@/components/badges";
 import { AiGroupingPanel } from "@/components/modules/ai-grouping-panel";
+import { ApproveModule } from "@/components/modules/approve-module";
 import { ModuleEndpoints } from "@/components/modules/module-endpoints";
 import { RenameModule } from "@/components/modules/rename-module";
 import { RunModulePanel } from "@/components/runs/run-module-panel";
@@ -35,6 +36,9 @@ export default async function ModulePage({
           <div className="flex items-center gap-2">
             <ViaBadge via={mod.via} />
             <StatusBadge status={mod.status} />
+            {mod.name === UNGROUPED ? null : (
+              <ApproveModule projectId={id} moduleId={moduleId} status={mod.status} />
+            )}
             <RenameModule projectId={id} moduleId={moduleId} name={mod.name} />
           </div>
         }

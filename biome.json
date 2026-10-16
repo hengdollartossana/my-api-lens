@@ -4,9 +4,12 @@
     "includes": [
       "src/**",
       "fixtures/**",
+      "e2e/**",
       "*.ts",
       "*.json",
       "!.next",
+      "!test-results",
+      "!playwright-report",
       "!node_modules",
       "!next-env.d.ts"
     ]
