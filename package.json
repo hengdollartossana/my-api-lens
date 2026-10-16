@@ -52,6 +52,7 @@
     "db:down": "docker compose down",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "mock:api": "tsx fixtures/mock-api/server.ts"
   }
 }

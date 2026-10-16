@@ -1,0 +1,238 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Messy Tenant API", "version": "2.3.0" },
+  "servers": [{ "url": "http://localhost:4010" }],
+  "components": {
+    "securitySchemes": { "bearerAuth": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "Money": {
+        "type": "object",
+        "required": ["amount", "currency"],
+        "properties": { "amount": { "type": "number" }, "currency": { "type": "string" } }
+      },
+      "Address": {
+        "type": "object",
+        "required": ["line1", "city"],
+        "properties": {
+          "line1": { "type": "string" },
+          "city": { "type": "string" },
+          "zip": { "type": "string" }
+        }
+      },
+      "UserDto": {
+        "type": "object",
+        "required": ["id", "email", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "address": { "$ref": "#/components/schemas/Address" }
+        }
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "required": ["email", "name"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" }
+        }
+      },
+      "OrderLineDto": {
+        "type": "object",
+        "required": ["sku", "quantity", "price"],
+        "properties": {
+          "sku": { "type": "string" },
+          "quantity": { "type": "integer" },
+          "price": { "$ref": "#/components/schemas/Money" }
+        }
+      },
+      "OrderDto": {
+        "type": "object",
+        "required": ["id", "total", "shippingAddress", "lines"],
+        "properties": {
+          "id": { "type": "string" },
+          "total": { "$ref": "#/components/schemas/Money" },
+          "shippingAddress": { "$ref": "#/components/schemas/Address" },
+          "lines": { "type": "array", "items": { "$ref": "#/components/schemas/OrderLineDto" } }
+        }
+      },
+      "TokenDto": {
+        "type": "object",
+        "required": ["token", "refreshToken"],
+        "properties": { "token": { "type": "string" }, "refreshToken": { "type": "string" } }
+      },
+      "ErrorDto": {
+        "type": "object",
+        "required": ["message"],
+        "properties": { "message": { "type": "string" } }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": { "username": { "type": "string" }, "password": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TokenDto" } }
+            }
+          },
+          "401": { "description": "bad credentials" }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": { "refreshToken": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TokenDto" } }
+            }
+          },
+          "401": { "description": "bad refresh token" }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UserDto" } }
+            }
+          },
+          "401": { "description": "unauthorized" }
+        }
+      }
+    },
+    "/api/v1/{tenant}/users": {
+      "parameters": [
+        { "name": "tenant", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "operationId": "UsersController_findAll",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/UserDto" } }
+              }
+            }
+          },
+          "401": { "description": "unauthorized" }
+        }
+      },
+      "post": {
+        "operationId": "UsersController_create",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateUserDto" } }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "created",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UserDto" } }
+            }
+          },
+          "401": { "description": "unauthorized" }
+        }
+      }
+    },
+    "/api/v1/{tenant}/users/{userId}": {
+      "parameters": [
+        { "name": "tenant", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "operationId": "UsersController_findOne",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UserDto" } }
+            }
+          },
+          "404": { "description": "not found" }
+        }
+      }
+    },
+    "/api/v1/{tenant}/orders": {
+      "parameters": [
+        { "name": "tenant", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "operationId": "OrdersController_findAll",
+        "parameters": [{ "name": "limit", "in": "query", "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/OrderDto" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/{tenant}/orders/{orderId}": {
+      "parameters": [
+        { "name": "tenant", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "operationId": "OrdersController_findOne",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/OrderDto" } }
+            }
+          },
+          "404": { "description": "not found" }
+        }
+      },
+      "delete": {
+        "operationId": "OrdersController_remove",
+        "responses": { "204": { "description": "deleted" }, "404": { "description": "not found" } }
+      }
+    }
+  }
+}
