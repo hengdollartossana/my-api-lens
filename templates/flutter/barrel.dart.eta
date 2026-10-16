@@ -1,0 +1,3 @@
+<%~ it.header %>
+<% for (const e of it.exports) { %>export '<%~ e %>';
+<% } %>

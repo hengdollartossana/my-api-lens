@@ -1,0 +1,10 @@
+<%~ it.header %>
+<%~ it.imports %>
+
+class <%~ it.className %> {
+  <%~ it.className %>(this._dio);
+
+  final Dio _dio;
+
+<%~ it.methods %>
+}
