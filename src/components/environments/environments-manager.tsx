@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
 import { EnvBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ export function EnvironmentsManager({
   suggestions: string[];
 }) {
   const router = useRouter();
+  const toast = useToast();
   const qc = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
   const [form, setForm] = useState<FormState>(blank());
@@ -98,6 +100,7 @@ export function EnvironmentsManager({
         return;
       }
       dialog.current?.close();
+      toast.success("Environment saved");
       refresh();
     } catch {
       setFormError("Could not reach the server.");

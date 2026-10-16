@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { RunSummary } from "@/db/ai-summary";
+import { apiJson, messageOf } from "@/lib/api-client";
 
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 4 : 2)}`;
 
@@ -31,17 +32,15 @@ export function RunAiSummary({ runId, finished }: { runId: string; finished: boo
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/runs/${runId}/summary`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ refresh }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message ?? "Could not summarise");
+      const data = await apiJson<{ summary: RunSummary | null; noFindings: boolean }>(
+        `/api/runs/${runId}/summary`,
+        { method: "POST", json: { refresh } },
+        "Could not summarise",
+      );
       setSummary(data.summary);
       setNoFindings(Boolean(data.noFindings));
     } catch (e) {
-      setError((e as Error).message);
+      setError(messageOf(e));
     } finally {
       setBusy(false);
     }

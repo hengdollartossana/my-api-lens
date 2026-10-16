@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AI_MODELS } from "@/core/ai/pricing";
 import type { AiSettingsView } from "@/db/ai";
+import { apiJson, messageOf } from "@/lib/api-client";
 
 type TestState =
   | { kind: "idle" }
@@ -22,32 +24,29 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
   const [model, setModel] = useState(initial.model);
   const [budget, setBudget] = useState(initial.monthlyBudgetUsd?.toString() ?? "");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
   const [test, setTest] = useState<TestState>({ kind: "idle" });
 
-  async function call(method: string, body?: unknown) {
-    const res = await fetch("/api/settings/ai", {
-      method,
-      headers: { "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error?.message ?? "Request failed");
-    setView(data.settings as AiSettingsView);
+  async function call(method: string, json?: unknown) {
+    const data = await apiJson<{ settings: AiSettingsView }>(
+      "/api/settings/ai",
+      { method, json },
+      "Could not update settings",
+    );
+    setView(data.settings);
   }
 
   async function save() {
     setBusy(true);
-    setMessage(null);
     try {
       const parsed = budget.trim() === "" ? null : Number(budget);
       if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0))
         throw new Error("Budget must be a positive number");
       await call("PUT", { ...(apiKey.trim() ? { apiKey } : {}), model, monthlyBudgetUsd: parsed });
       setApiKey("");
-      setMessage("Saved");
+      toast.success("AI settings saved");
     } catch (e) {
-      setMessage((e as Error).message);
+      toast.error(messageOf(e));
     } finally {
       setBusy(false);
     }
@@ -55,13 +54,12 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
 
   async function removeKey() {
     setBusy(true);
-    setMessage(null);
     setTest({ kind: "idle" });
     try {
       await call("DELETE");
-      setMessage("Key removed");
+      toast.success("API key removed");
     } catch (e) {
-      setMessage((e as Error).message);
+      toast.error(messageOf(e));
     } finally {
       setBusy(false);
     }
@@ -69,21 +67,25 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
 
   async function runTest() {
     setTest({ kind: "busy" });
-    const res = await fetch("/api/settings/ai/test", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      setTest({ kind: "error", message: data?.error?.message ?? "Test failed" });
-      return;
+    try {
+      const data = await apiJson<{
+        model: string;
+        usage: { inputTokens: number; outputTokens: number };
+        costUsd: number;
+      }>("/api/settings/ai/test", { method: "POST" }, "Test failed");
+      setTest({
+        kind: "ok",
+        model: data.model,
+        input: data.usage.inputTokens,
+        output: data.usage.outputTokens,
+        cost: data.costUsd,
+      });
+      toast.success("The key works");
+      const refreshed = await apiJson<{ settings: AiSettingsView }>("/api/settings/ai");
+      setView(refreshed.settings);
+    } catch (e) {
+      setTest({ kind: "error", message: messageOf(e) });
     }
-    setTest({
-      kind: "ok",
-      model: data.model,
-      input: data.usage.inputTokens,
-      output: data.usage.outputTokens,
-      cost: data.costUsd,
-    });
-    const refreshed = await fetch("/api/settings/ai").then((r) => r.json());
-    setView(refreshed.settings as AiSettingsView);
   }
 
   return (
@@ -168,11 +170,6 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
           <Button size="sm" variant="ghost" onClick={removeKey} disabled={busy}>
             Remove key
           </Button>
-        ) : null}
-        {message ? (
-          <span className="text-xs text-zinc-500" aria-live="polite">
-            {message}
-          </span>
         ) : null}
       </div>
 

@@ -3,6 +3,7 @@
 import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useRef, useState } from "react";
+import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ type Source = "url" | "file";
 /** "New project": import a spec from a URL or a file; parse errors show inline and nothing is created. */
 export function NewProjectDialog() {
   const router = useRouter();
+  const toast = useToast();
   const dialog = useRef<HTMLDialogElement>(null);
   const [source, setSource] = useState<Source>("url");
   const [name, setName] = useState("");
@@ -55,6 +57,7 @@ export function NewProjectDialog() {
         return;
       }
       close();
+      toast.success(`Imported ${data?.project?.name ?? "project"}`);
       setName("");
       setUrl("");
       setFile(null);

@@ -71,14 +71,12 @@ describe.skipIf(!url)("AI run summary", () => {
         .values({ projectId, environmentId: envId, status })
         .returning();
       const id = (r as { id: string }).id;
-      await dbc.db
-        .insert(schema.runResults)
-        .values({
-          runId: id,
-          endpointId: (ep as { id: string }).id,
-          statusCode: 200,
-          diff: diff as never,
-        });
+      await dbc.db.insert(schema.runResults).values({
+        runId: id,
+        endpointId: (ep as { id: string }).id,
+        statusCode: 200,
+        diff: diff as never,
+      });
       return id;
     };
     runWithDiffs = await mkRun("done", [
