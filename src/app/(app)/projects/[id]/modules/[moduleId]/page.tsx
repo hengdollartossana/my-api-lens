@@ -1,11 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { MethodBadge, StatusBadge, ViaBadge } from "@/components/badges";
+import { StatusBadge, ViaBadge } from "@/components/badges";
+import { ModuleEndpoints } from "@/components/modules/module-endpoints";
+import { RenameModule } from "@/components/modules/rename-module";
 import { RunModulePanel } from "@/components/runs/run-module-panel";
 import { PageHeader } from "@/components/shell/page-header";
 import { listEnvironments } from "@/db/environments";
-import { getModule } from "@/db/modules";
+import { getModule, listModules } from "@/db/modules";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function ModulePage({
   const found = await getModule(id, moduleId);
   if (!found) notFound();
   const { module: mod, endpoints } = found;
-  const environments = await listEnvironments(id);
+  const [environments, modules] = await Promise.all([listEnvironments(id), listModules(id)]);
   const destructive = endpoints.filter((e) => e.isDestructive).length;
 
   return (
@@ -31,6 +32,7 @@ export default async function ModulePage({
           <div className="flex items-center gap-2">
             <ViaBadge via={mod.via} />
             <StatusBadge status={mod.status} />
+            <RenameModule projectId={id} moduleId={moduleId} name={mod.name} />
           </div>
         }
       />
@@ -45,32 +47,7 @@ export default async function ModulePage({
         />
       </div>
 
-      <h2 className="mb-2 text-sm font-medium">Endpoints</h2>
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <table className="w-full text-sm">
-          <tbody>
-            {endpoints.map((e) => (
-              <tr
-                key={e.id}
-                className="border-b border-zinc-200 last:border-0 dark:border-zinc-800"
-              >
-                <td className="w-20 p-2">
-                  <MethodBadge method={e.method} />
-                </td>
-                <td className="p-2 font-mono text-xs">
-                  <Link href={`/projects/${id}/endpoints/${e.id}`} className="hover:underline">
-                    {e.path}
-                  </Link>
-                </td>
-                <td className="p-2 text-xs text-zinc-500">{e.summary}</td>
-                <td className="p-2 text-right text-xs text-zinc-500">
-                  {e.isDestructive ? "destructive" : ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ModuleEndpoints projectId={id} moduleId={moduleId} endpoints={endpoints} modules={modules} />
     </>
   );
 }
