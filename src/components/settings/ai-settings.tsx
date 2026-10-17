@@ -107,8 +107,8 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
       <div>
         <h2 className="text-sm font-semibold">AI (optional)</h2>
         <p className="text-xs text-zinc-500">
-          Bring your own Google AI Studio or Anthropic key. Without one, everything else works and AI actions stay
-          disabled. The key is stored encrypted and never sent back to the browser.
+          Bring your own Google AI Studio or Anthropic key. Without one, everything else works and
+          AI actions stay disabled. The key is stored encrypted and never sent back to the browser.
         </p>
       </div>
 
