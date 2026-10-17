@@ -91,6 +91,13 @@ pnpm exec playwright install chromium   # once
 pnpm test:e2e                 # the full happy path in a headless browser, against the mock API
 ```
 
+Test notes:
+
+- `pnpm test` runs Vitest. Tests that need Postgres or the mock API are skipped when those aren't available, so start `pnpm db:up` first for the full run.
+- Load `.env` before running (`set -a; . ./.env; set +a`). The e2e test logs in with `APP_PASSWORD` from your `.env`; there is no separate test password.
+- The mock API's own login (used by the e2e run and the manual walkthrough) is `demo` / `demo`.
+- Tests must only call `fixtures/mock-api`, never a real host.
+
 ## Run it on the Mac mini (production build)
 
 Same steps 1 and 2, then build once and start:
