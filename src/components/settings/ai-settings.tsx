@@ -5,7 +5,7 @@ import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AI_MODELS } from "@/core/ai/pricing";
+import { AI_PROVIDERS, type AiProviderId, modelsFor } from "@/core/ai/pricing";
 import type { AiSettingsView } from "@/db/ai";
 import { apiJson, messageOf } from "@/lib/api-client";
 
@@ -21,15 +21,24 @@ const usd = (n: number) => `$${n.toFixed(n < 1 ? 4 : 2)}`;
 export function AiSettings({ initial }: { initial: AiSettingsView }) {
   const [view, setView] = useState(initial);
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState(initial.model);
+  const [provider, setProvider] = useState<AiProviderId>(initial.provider);
+  const [models, setModels] = useState<Record<AiProviderId, string>>({
+    anthropic: initial.providers.anthropic.model,
+    google: initial.providers.google.model,
+  });
   const [budget, setBudget] = useState(initial.monthlyBudgetUsd?.toString() ?? "");
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const [test, setTest] = useState<TestState>({ kind: "idle" });
 
-  async function call(method: string, json?: unknown) {
+  const info = AI_PROVIDERS.find((p) => p.id === provider) ?? AI_PROVIDERS[0];
+  const hasKey = view.providers[provider].keyMasked !== null;
+  // "Test key" calls the saved active provider, so it only makes sense for that one.
+  const canTest = view.provider === provider && view.hasKey;
+
+  async function call(method: string, json?: unknown, query = "") {
     const data = await apiJson<{ settings: AiSettingsView }>(
-      "/api/settings/ai",
+      `/api/settings/ai${query}`,
       { method, json },
       "Could not update settings",
     );
@@ -42,7 +51,12 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
       const parsed = budget.trim() === "" ? null : Number(budget);
       if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0))
         throw new Error("Budget must be a positive number");
-      await call("PUT", { ...(apiKey.trim() ? { apiKey } : {}), model, monthlyBudgetUsd: parsed });
+      await call("PUT", {
+        provider,
+        ...(apiKey.trim() ? { apiKey } : {}),
+        model: models[provider],
+        monthlyBudgetUsd: parsed,
+      });
       setApiKey("");
       toast.success("AI settings saved");
     } catch (e) {
@@ -56,7 +70,7 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
     setBusy(true);
     setTest({ kind: "idle" });
     try {
-      await call("DELETE");
+      await call("DELETE", undefined, `?provider=${provider}`);
       toast.success("API key removed");
     } catch (e) {
       toast.error(messageOf(e));
@@ -93,23 +107,60 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
       <div>
         <h2 className="text-sm font-semibold">AI (optional)</h2>
         <p className="text-xs text-zinc-500">
-          Bring your own Anthropic key. Without one, everything else works and AI actions stay
+          Bring your own Google AI Studio or Anthropic key. Without one, everything else works and AI actions stay
           disabled. The key is stored encrypted and never sent back to the browser.
         </p>
       </div>
 
       <div className="flex flex-col gap-1">
+        <Label htmlFor="ai-provider" className="text-xs">
+          Provider
+        </Label>
+        <select
+          id="ai-provider"
+          value={provider}
+          onChange={(e) => {
+            setProvider(e.target.value as AiProviderId);
+            setApiKey("");
+            setTest({ kind: "idle" });
+          }}
+          className="h-9 rounded-md border border-zinc-300 bg-background px-2 text-sm dark:border-zinc-800"
+        >
+          {AI_PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1">
         <Label htmlFor="ai-key" className="text-xs">
-          API key {view.keyMasked ? <span className="font-mono">({view.keyMasked})</span> : null}
+          API key{" "}
+          {view.providers[provider].keyMasked ? (
+            <span className="font-mono">({view.providers[provider].keyMasked})</span>
+          ) : null}
         </Label>
         <Input
           id="ai-key"
           type="password"
           autoComplete="off"
-          placeholder={view.hasKey ? "Enter a new key to replace it" : "sk-ant-…"}
+          placeholder={hasKey ? "Enter a new key to replace it" : info.keyHint}
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
         />
+        <p className="text-xs text-zinc-500">
+          Create a key at{" "}
+          <a
+            href={info.keyUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline"
+          >
+            {info.keyUrl.replace("https://", "")}
+          </a>
+          . Prices shown are estimates used for the budget.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -119,13 +170,13 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
           </Label>
           <select
             id="ai-model"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
+            value={models[provider]}
+            onChange={(e) => setModels({ ...models, [provider]: e.target.value })}
             className="h-9 rounded-md border border-zinc-300 bg-background px-2 text-sm dark:border-zinc-800"
           >
-            {AI_MODELS.map((m) => (
+            {modelsFor(provider).map((m) => (
               <option key={m.id} value={m.id}>
-                {m.label} (${m.inputPerMTok}/${m.outputPerMTok} per M tokens)
+                {m.label} (~${m.inputPerMTok}/${m.outputPerMTok} per M tokens)
               </option>
             ))}
           </select>
@@ -162,11 +213,12 @@ export function AiSettings({ initial }: { initial: AiSettingsView }) {
           size="sm"
           variant="outline"
           onClick={runTest}
-          disabled={!view.hasKey || test.kind === "busy"}
+          disabled={!canTest || test.kind === "busy"}
+          title={canTest ? undefined : "Save this provider first, then test it"}
         >
           {test.kind === "busy" ? "Testing…" : "Test key"}
         </Button>
-        {view.hasKey ? (
+        {hasKey ? (
           <Button size="sm" variant="ghost" onClick={removeKey} disabled={busy}>
             Remove key
           </Button>

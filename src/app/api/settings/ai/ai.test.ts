@@ -107,5 +107,6 @@ describe.skipIf(!url)("AI settings", () => {
   it("rejects an unknown model", async (ctx) => {
     if (occupied) return ctx.skip();
     expect((await put({ model: "gpt-4" })).status).toBe(400);
+    expect((await put({ provider: "google", model: "claude-opus-5-5" })).status).toBe(400);
   });
 });
