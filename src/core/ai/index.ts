@@ -31,4 +31,11 @@ export {
   type SummaryContext,
   type SummaryDiffItem,
 } from "./summary";
+export {
+  buildTestDataRequest,
+  MAX_TESTDATA_ENDPOINTS,
+  parseTestDataResponse,
+  type TestDataEndpoint,
+  type TestDataInput,
+} from "./testdata";
 export * from "./types";

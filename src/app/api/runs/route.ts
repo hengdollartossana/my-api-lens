@@ -11,6 +11,7 @@ const body = z.object({
   confirmDestructive: z.boolean().optional(),
   confirmEnvName: z.string().optional(),
   concurrency: z.number().int().min(1).max(4).optional(),
+  aiFill: z.boolean().optional(),
   input: z
     .object({
       pathParams: z.record(z.string(), z.union([z.string(), z.number()])).optional(),

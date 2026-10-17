@@ -14,6 +14,8 @@ import {
   severityFor,
   skipReason,
 } from "@/core/executor";
+import { type AiTestDeps, aiEnabled } from "@/db/ai";
+import { generateTestData } from "@/db/ai-testdata";
 import { db } from "@/db/client";
 import { endpoints, environments, modules, runResults, runs } from "@/db/schema";
 import { buildAuthContext, guardFor, tokenCache } from "./auth-runner";
@@ -65,6 +67,8 @@ export interface StartRunInput {
   confirmDestructive?: boolean;
   confirmEnvName?: string;
   concurrency?: number;
+  /** Let AI fill realistic request values; endpoints it skips keep schema-sampled values. */
+  aiFill?: boolean;
   /** Edited request for a single-endpoint run (path/query params, headers, body). */
   input?: ExecInput;
 }
@@ -120,7 +124,7 @@ async function loadEndpoints(input: StartRunInput) {
 }
 
 /** Validates the request, creates the run row and starts executing in the background. */
-export async function startRun(input: StartRunInput) {
+export async function startRun(input: StartRunInput, aiDeps?: AiTestDeps) {
   const [env] = await db
     .select()
     .from(environments)
@@ -153,6 +157,11 @@ export async function startRun(input: StartRunInput) {
     );
   }
 
+  if (input.aiFill && !(await aiEnabled())) {
+    throw new RunInputError(409, "AI_DISABLED", "AI is not configured: add an API key in Settings");
+  }
+  const generated = input.aiFill ? await generateTestData(rows, aiDeps) : null;
+
   const [run] = await db
     .insert(runs)
     .values({
@@ -178,8 +187,24 @@ export async function startRun(input: StartRunInput) {
     if (r.finished) live.delete(id);
   }
 
-  void execute(liveRun, rows, input, clampConcurrency(input.concurrency));
-  return { runId, total: rows.length, skipped };
+  void execute(
+    liveRun,
+    rows,
+    input,
+    clampConcurrency(input.concurrency),
+    generated?.inputs ?? new Map(),
+  );
+  return {
+    runId,
+    total: rows.length,
+    skipped,
+    aiFill: generated && {
+      used: generated.error === null,
+      filled: generated.inputs.size,
+      costUsd: generated.costUsd,
+      error: generated.error,
+    },
+  };
 }
 
 async function execute(
@@ -187,6 +212,7 @@ async function execute(
   rows: (typeof endpoints.$inferSelect)[],
   input: StartRunInput,
   concurrency: number,
+  aiInputs: Map<string, ExecInput>,
 ) {
   const total = rows.length;
   let completed = 0;
@@ -212,7 +238,13 @@ async function execute(
             requestBodySchema: row.requestBodySchema ?? null,
           };
           result = await executeWithAuth(
-            (auth) => buildRequest(endpoint, ctx.env, input.input ?? {}, auth),
+            (auth) =>
+              buildRequest(
+                endpoint,
+                ctx.env,
+                input.input ?? aiInputs.get(row.stableKey) ?? {},
+                auth,
+              ),
             ctx,
             tokenCache,
             opts,
